@@ -1,8 +1,20 @@
 // Modelo de datos unificado — ver docs/PROJECT_PROMPT.md
 
+/**
+ * Plataforma donde se GESTIONA/trackea el ticket (Redmine, Century,
+ * ClickUp/Excel PO, herramientas de Innovación). OJO: no es el sistema
+ * donde ocurre el incidente — para eso está `Ticket.originSystem`.
+ */
 export type SourceSystem = 'redmine' | 'century' | 'clickup_po' | 'innovacion'
 
-export type WorkType = 'operativo' | 'sap' | 'proyecto_po' | 'innovacion'
+/**
+ * Tipo de trabajo — texto libre a propósito: para tickets de PO viene tal
+ * cual de la columna "TIPO PO/Adicional" de la planilla (PO 2026, Adicional,
+ * INNO, etc.), que no es una lista cerrada y puede sumar valores nuevos en
+ * futuras versiones del archivo. `WORK_TYPE_PRESETS` da sugerencias para
+ * cuando se carga un ticket a mano.
+ */
+export type WorkType = string
 
 export type TicketStatus =
   | 'abierto'
@@ -55,7 +67,6 @@ export interface PoDetails {
   dueno?: string
   /** Jefe TIC a cargo — dato de contexto, usado para el filtro de alcance. */
   jefeTic?: string
-  sistema?: string
   solicitudFirmada?: string
   dfAlcance?: string
   actaPrueba?: string
@@ -82,6 +93,14 @@ export interface Ticket {
   title: string
   description: string
   workType: WorkType
+  /**
+   * Sistema donde se origina el incidente/trabajo (SAP, B-POS,
+   * Infraestructura, HW, Telefonía, etc.) — distinto de `sourceSystem`
+   * (dónde se gestiona el ticket). Texto libre por el mismo motivo que
+   * `workType`: para tickets de PO viene de la columna "Sistema" de la
+   * planilla, que no es una lista cerrada.
+   */
+  originSystem?: string
   status: TicketStatus
   priority: Priority
   assignees: string[] // Person.id[]
@@ -127,12 +146,17 @@ export const SOURCE_SYSTEM_LABELS: Record<SourceSystem, string> = {
   innovacion: 'Innovación',
 }
 
-export const WORK_TYPE_LABELS: Record<WorkType, string> = {
-  operativo: 'Operativo',
-  sap: 'SAP',
-  proyecto_po: 'Proyecto PO',
-  innovacion: 'Innovación',
-}
+/**
+ * Sugerencias de tipo para cuando se carga un ticket a mano (datalist, no
+ * lista cerrada). El default según plataforma lo resuelve
+ * `defaultWorkTypeFor` en TicketFormModal.
+ */
+export const WORK_TYPE_PRESETS = [
+  'Operativo',
+  'SAP',
+  'Proyecto PO',
+  'Proyecto de Innovación',
+] as const
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   abierto: 'Abierto',

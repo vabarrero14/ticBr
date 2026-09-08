@@ -5,12 +5,12 @@ import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
 import { TicketFormModal } from '../components/TicketFormModal'
 import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
+import { distinctValues } from '../lib/distinctValues'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
 import {
   PRIORITY_LABELS,
   SOURCE_SYSTEM_LABELS,
   TICKET_STATUS_LABELS,
-  WORK_TYPE_LABELS,
   type Ticket,
 } from '../lib/types'
 
@@ -32,7 +32,11 @@ export function TicketsPage() {
     [allTickets, jefeScope],
   )
 
+  const originSystems = useMemo(() => distinctValues(allTickets, (t) => t.originSystem), [allTickets])
+  const workTypes = useMemo(() => distinctValues(allTickets, (t) => t.workType), [allTickets])
+
   const [sourceSystem, setSourceSystem] = useState('')
+  const [originSystem, setOriginSystem] = useState('')
   const [workType, setWorkType] = useState('')
   const [status, setStatus] = useState('')
   const [assignee, setAssignee] = useState('')
@@ -50,6 +54,7 @@ export function TicketsPage() {
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
       if (sourceSystem && t.sourceSystem !== sourceSystem) return false
+      if (originSystem && t.originSystem !== originSystem) return false
       if (workType && t.workType !== workType) return false
       if (status && t.status !== status) return false
       if (assignee && !t.assignees.includes(assignee)) return false
@@ -60,7 +65,7 @@ export function TicketsPage() {
         return false
       return true
     })
-  }, [tickets, sourceSystem, workType, status, assignee, search])
+  }, [tickets, sourceSystem, originSystem, workType, status, assignee, search])
 
   return (
     <div className="space-y-6">
@@ -94,7 +99,7 @@ export function TicketsPage() {
         </label>
 
         <FilterSelect
-          label="Sistema"
+          label="Plataforma"
           value={sourceSystem}
           onChange={setSourceSystem}
           options={Object.entries(SOURCE_SYSTEM_LABELS).map(([value, label]) => ({
@@ -103,13 +108,16 @@ export function TicketsPage() {
           }))}
         />
         <FilterSelect
-          label="Tipo de trabajo"
+          label="Sistema"
+          value={originSystem}
+          onChange={setOriginSystem}
+          options={originSystems.map((s) => ({ value: s, label: s }))}
+        />
+        <FilterSelect
+          label="Tipo"
           value={workType}
           onChange={setWorkType}
-          options={Object.entries(WORK_TYPE_LABELS).map(([value, label]) => ({
-            value,
-            label,
-          }))}
+          options={workTypes.map((wt) => ({ value: wt, label: wt }))}
         />
         <FilterSelect
           label="Estado"
@@ -128,11 +136,12 @@ export function TicketsPage() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Ticket</th>
+              <th className="px-4 py-2 font-medium">Plataforma</th>
               <th className="px-4 py-2 font-medium">Sistema</th>
               <th className="px-4 py-2 font-medium">Tipo</th>
               <th className="px-4 py-2 font-medium">Estado</th>
@@ -152,9 +161,8 @@ export function TicketsPage() {
                 <td className="px-4 py-3 text-slate-600">
                   {SOURCE_SYSTEM_LABELS[t.sourceSystem]}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {WORK_TYPE_LABELS[t.workType]}
-                </td>
+                <td className="px-4 py-3 text-slate-600">{t.originSystem ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-600">{t.workType}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge[t.status]}`}
@@ -196,7 +204,7 @@ export function TicketsPage() {
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                   {allTickets.length === 0
                     ? 'Todavía no hay tickets cargados. Creá el primero.'
                     : tickets.length === 0
@@ -210,12 +218,19 @@ export function TicketsPage() {
       </div>
 
       {showNewTicket && (
-        <TicketFormModal people={people} onClose={() => setShowNewTicket(false)} />
+        <TicketFormModal
+          people={people}
+          existingSystems={originSystems}
+          existingWorkTypes={workTypes}
+          onClose={() => setShowNewTicket(false)}
+        />
       )}
       {editingTicket && (
         <TicketFormModal
           ticket={editingTicket}
           people={people}
+          existingSystems={originSystems}
+          existingWorkTypes={workTypes}
           onClose={() => setEditingTicket(null)}
         />
       )}

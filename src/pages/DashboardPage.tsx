@@ -1,15 +1,13 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FilterSelect } from '../components/FilterSelect'
 import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { StatCard } from '../components/StatCard'
 import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
+import { distinctValues } from '../lib/distinctValues'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
-import {
-  SOURCE_SYSTEM_LABELS,
-  WORK_TYPE_LABELS,
-  type SourceSystem,
-  type WorkType,
-} from '../lib/types'
+import { SOURCE_SYSTEM_LABELS, TICKET_STATUS_LABELS, type SourceSystem } from '../lib/types'
 
 function countBy<T extends string>(items: T[]): Record<string, number> {
   return items.reduce<Record<string, number>>((acc, key) => {
@@ -24,22 +22,42 @@ export function DashboardPage() {
   const { data: rootCauses } = useCollectionData(rootCausesCol)
   const [jefeScope, setJefeScope] = useJefeScope()
 
-  const tickets = allTickets.filter((t) => inJefeScope(t, jefeScope))
+  const [sourceSystem, setSourceSystem] = useState('')
+  const [originSystem, setOriginSystem] = useState('')
+  const [workType, setWorkType] = useState('')
+  const [status, setStatus] = useState('')
+  const [assignee, setAssignee] = useState('')
+
+  const originSystems = useMemo(() => distinctValues(allTickets, (t) => t.originSystem), [allTickets])
+  const workTypes = useMemo(() => distinctValues(allTickets, (t) => t.workType), [allTickets])
+
+  const tickets = useMemo(() => {
+    return allTickets.filter((t) => {
+      if (!inJefeScope(t, jefeScope)) return false
+      if (sourceSystem && t.sourceSystem !== sourceSystem) return false
+      if (originSystem && t.originSystem !== originSystem) return false
+      if (workType && t.workType !== workType) return false
+      if (status && t.status !== status) return false
+      if (assignee && !t.assignees.includes(assignee)) return false
+      return true
+    })
+  }, [allTickets, jefeScope, sourceSystem, originSystem, workType, status, assignee])
 
   const openTickets = tickets.filter(
     (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
   )
   const withoutRootCause = openTickets.filter((t) => t.rootCauseId === null)
 
-  const bySystem = countBy(tickets.map((t) => t.sourceSystem))
+  const byPlatform = countBy(tickets.map((t) => t.sourceSystem))
+  const bySystem = countBy(tickets.map((t) => t.originSystem).filter((s): s is string => Boolean(s)))
   const byWorkType = countBy(tickets.map((t) => t.workType))
   const byPerson = countBy(tickets.flatMap((t) => t.assignees))
 
   const personName = (id: string) => people.find((p) => p.id === id)?.name ?? id
 
   // Recontar recurrencia de casos raíz sobre los tickets ya filtrados por
-  // alcance, para no mezclar el conteo global guardado (linkedTicketsCount)
-  // con una vista que puede estar mostrando solo un subconjunto de TIC.
+  // alcance/filtros, para no mezclar el conteo global guardado
+  // (linkedTicketsCount) con una vista que puede estar mostrando un subconjunto.
   const rootCausesInScope = rootCauses
     .map((rc) => ({ rc, count: tickets.filter((t) => t.rootCauseId === rc.id).length }))
     .filter(({ count }) => count > 0)
@@ -71,6 +89,45 @@ export function DashboardPage() {
         <JefeScopeSelector tickets={allTickets} value={jefeScope} onChange={setJefeScope} />
       </div>
 
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
+        <FilterSelect
+          label="Plataforma"
+          value={sourceSystem}
+          onChange={setSourceSystem}
+          options={Object.entries(SOURCE_SYSTEM_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
+        />
+        <FilterSelect
+          label="Sistema"
+          value={originSystem}
+          onChange={setOriginSystem}
+          options={originSystems.map((s) => ({ value: s, label: s }))}
+        />
+        <FilterSelect
+          label="Tipo"
+          value={workType}
+          onChange={setWorkType}
+          options={workTypes.map((wt) => ({ value: wt, label: wt }))}
+        />
+        <FilterSelect
+          label="Estado"
+          value={status}
+          onChange={setStatus}
+          options={Object.entries(TICKET_STATUS_LABELS).map(([value, label]) => ({
+            value,
+            label,
+          }))}
+        />
+        <FilterSelect
+          label="Asignado"
+          value={assignee}
+          onChange={setAssignee}
+          options={people.map((p) => ({ value: p.id, label: p.name }))}
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Tickets totales" value={tickets.length} />
         <StatCard label="Abiertos" value={openTickets.length} />
@@ -82,11 +139,11 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-medium text-slate-700">Por sistema</h2>
+          <h2 className="text-sm font-medium text-slate-700">Por plataforma</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(bySystem).map(([key, count]) => (
+            {Object.entries(byPlatform).map(([key, count]) => (
               <li key={key} className="flex justify-between">
                 <span className="text-slate-600">
                   {SOURCE_SYSTEM_LABELS[key as SourceSystem]}
@@ -98,13 +155,26 @@ export function DashboardPage() {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-medium text-slate-700">Por tipo de trabajo</h2>
+          <h2 className="text-sm font-medium text-slate-700">Por sistema</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {Object.entries(bySystem).map(([key, count]) => (
+              <li key={key} className="flex justify-between">
+                <span className="text-slate-600">{key}</span>
+                <span className="font-medium text-slate-900">{count}</span>
+              </li>
+            ))}
+            {Object.keys(bySystem).length === 0 && (
+              <li className="text-slate-400">Sin datos todavía.</li>
+            )}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-medium text-slate-700">Por tipo</h2>
           <ul className="mt-3 space-y-2 text-sm">
             {Object.entries(byWorkType).map(([key, count]) => (
               <li key={key} className="flex justify-between">
-                <span className="text-slate-600">
-                  {WORK_TYPE_LABELS[key as WorkType]}
-                </span>
+                <span className="text-slate-600">{key}</span>
                 <span className="font-medium text-slate-900">{count}</span>
               </li>
             ))}

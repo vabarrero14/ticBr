@@ -4,26 +4,46 @@ import {
   PRIORITY_LABELS,
   SOURCE_SYSTEM_LABELS,
   TICKET_STATUS_LABELS,
-  WORK_TYPE_LABELS,
+  WORK_TYPE_PRESETS,
   type Person,
   type Priority,
   type SourceSystem,
   type Ticket,
   type TicketStatus,
-  type WorkType,
 } from '../lib/types'
 import { Field, inputClass } from './formFields'
 import { Modal } from './Modal'
 import { PersonFormModal } from './PersonFormModal'
 import { PoDetailsPanel } from './PoDetailsPanel'
 
+/** Tipo sugerido según la plataforma, para no arrancar de un campo vacío
+ * (el usuario lo puede pisar libremente después). */
+function defaultWorkTypeFor(source: SourceSystem): string {
+  switch (source) {
+    case 'redmine':
+      return 'Operativo'
+    case 'century':
+      return 'SAP'
+    case 'innovacion':
+      return 'Proyecto de Innovación'
+    case 'clickup_po':
+      return 'Proyecto PO'
+  }
+}
+
 export function TicketFormModal({
   ticket,
   people,
+  existingSystems = [],
+  existingWorkTypes = [],
   onClose,
 }: {
   ticket?: Ticket
   people: Person[]
+  /** Valores de "Sistema" ya vistos en otros tickets, para autocompletar. */
+  existingSystems?: string[]
+  /** Valores de "Tipo" ya vistos en otros tickets, para autocompletar. */
+  existingWorkTypes?: string[]
   onClose: () => void
 }) {
   const [sourceSystem, setSourceSystem] = useState<SourceSystem>(
@@ -33,7 +53,10 @@ export function TicketFormModal({
   const [sourceUrl, setSourceUrl] = useState(ticket?.sourceUrl ?? '')
   const [title, setTitle] = useState(ticket?.title ?? '')
   const [description, setDescription] = useState(ticket?.description ?? '')
-  const [workType, setWorkType] = useState<WorkType>(ticket?.workType ?? 'operativo')
+  const [workType, setWorkType] = useState(
+    ticket?.workType ?? defaultWorkTypeFor(sourceSystem),
+  )
+  const [originSystem, setOriginSystem] = useState(ticket?.originSystem ?? '')
   const [status, setStatus] = useState<TicketStatus>(ticket?.status ?? 'abierto')
   const [priority, setPriority] = useState<Priority>(ticket?.priority ?? 'media')
   const [area, setArea] = useState(ticket?.area ?? '')
@@ -42,6 +65,15 @@ export function TicketFormModal({
   const [showPersonModal, setShowPersonModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const workTypeOptions = Array.from(new Set([...WORK_TYPE_PRESETS, ...existingWorkTypes]))
+
+  function handleSourceSystemChange(value: SourceSystem) {
+    setSourceSystem(value)
+    // Solo autocompletamos el tipo al crear un ticket nuevo — si ya existe,
+    // no le pisamos un tipo que el usuario haya elegido a propósito.
+    if (!ticket) setWorkType(defaultWorkTypeFor(value))
+  }
 
   function toggleAssignee(id: string) {
     setAssignees((prev) =>
@@ -64,7 +96,8 @@ export function TicketFormModal({
       sourceUrl: sourceUrl.trim() || undefined,
       title: title.trim(),
       description: description.trim(),
-      workType,
+      workType: workType.trim() || defaultWorkTypeFor(sourceSystem),
+      originSystem: originSystem.trim() || undefined,
       status,
       priority,
       assignees,
@@ -95,11 +128,11 @@ export function TicketFormModal({
         {ticket?.po && <PoDetailsPanel po={ticket.po} log={ticket.log} />}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Sistema de origen">
+            <Field label="Plataforma de gestión">
               <select
                 className={inputClass}
                 value={sourceSystem}
-                onChange={(e) => setSourceSystem(e.target.value as SourceSystem)}
+                onChange={(e) => handleSourceSystemChange(e.target.value as SourceSystem)}
               >
                 {Object.entries(SOURCE_SYSTEM_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -145,20 +178,38 @@ export function TicketFormModal({
             />
           </Field>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Tipo de trabajo">
-              <select
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tipo">
+              <input
                 className={inputClass}
+                list="work-type-options"
                 value={workType}
-                onChange={(e) => setWorkType(e.target.value as WorkType)}
-              >
-                {Object.entries(WORK_TYPE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
+                onChange={(e) => setWorkType(e.target.value)}
+                placeholder="ej: Operativo, SAP, PO 2026…"
+              />
+              <datalist id="work-type-options">
+                {workTypeOptions.map((wt) => (
+                  <option key={wt} value={wt} />
                 ))}
-              </select>
+              </datalist>
             </Field>
+            <Field label="Sistema (dónde ocurre el incidente)">
+              <input
+                className={inputClass}
+                list="origin-system-options"
+                value={originSystem}
+                onChange={(e) => setOriginSystem(e.target.value)}
+                placeholder="ej: SAP, B-POS, Infraestructura…"
+              />
+              <datalist id="origin-system-options">
+                {existingSystems.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Estado">
               <select
                 className={inputClass}

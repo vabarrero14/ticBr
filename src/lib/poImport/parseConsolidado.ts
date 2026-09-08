@@ -10,6 +10,9 @@ export interface ParsedPoRow {
   priority: Priority
   priorityRaw: string
   gerencia?: string
+  /** Columna "Sistema" — sistema donde ocurre el incidente (SAP, B-POS,
+   * Infraestructura, etc.), no la plataforma de gestión. */
+  sistemaOrigen?: string
   dueno?: string
   jefeTic?: string
   analistaTecnico?: string
@@ -29,7 +32,6 @@ export interface ParsedPoRow {
     jefatura?: string
     dueno?: string
     jefeTic?: string
-    sistema?: string
     solicitudFirmada?: string
     dfAlcance?: string
     actaPrueba?: string
@@ -68,7 +70,6 @@ const FIELD_HEADERS: Record<string, keyof ParsedPoRow['po']> = {
   dirección: 'direccion',
   direccion: 'direccion',
   jefatura: 'jefatura',
-  sistema: 'sistema',
   'solicitud de requerimiento firmado': 'solicitudFirmada',
   'df/alcance': 'dfAlcance',
   'acta de prueba': 'actaPrueba',
@@ -163,6 +164,7 @@ export function parseConsolidadoWorkbook(buffer: ArrayBuffer): ParseResult {
   const colNroPedido = colOf('Nro Pedido')
   const colTarea = colOf('Tarea')
   const colGerencia = colOf('Gerencia')
+  const colSistema = colOf('Sistema')
   const colDueno = colOf('Dueño')
   const colPrioridad = colOf('Prioridad')
   const colEstatus = colOf('ESTATUS')
@@ -281,6 +283,7 @@ export function parseConsolidadoWorkbook(buffer: ArrayBuffer): ParseResult {
       priority,
       priorityRaw: priorityRaw ?? '',
       gerencia: colGerencia !== -1 ? cellText(row[colGerencia]) : undefined,
+      sistemaOrigen: colSistema !== -1 ? cellText(row[colSistema]) : undefined,
       dueno,
       jefeTic,
       analistaTecnico,

@@ -185,7 +185,7 @@ export function ImportPage() {
                     <td className="px-3 py-2 text-slate-600">{TICKET_STATUS_LABELS[r.status]}</td>
                     <td className="px-3 py-2 text-slate-600">{PRIORITY_LABELS[r.priority]}</td>
                     <td className="px-3 py-2 text-slate-600">{r.dueno ?? '—'}</td>
-                    <td className="px-3 py-2 text-slate-600">{r.po.sistema ?? '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{r.sistemaOrigen ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

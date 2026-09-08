@@ -11,7 +11,6 @@ const FIELD_LABELS: Partial<Record<keyof PoDetails, string>> = {
   jefatura: 'Jefatura',
   dueno: 'Dueño (negocio)',
   jefeTic: 'Jefe TIC',
-  sistema: 'Sistema',
   solicitudFirmada: 'Solicitud de requerimiento firmado',
   dfAlcance: 'DF/Alcance',
   actaPrueba: 'Acta de Prueba',

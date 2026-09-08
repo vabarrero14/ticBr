@@ -22,6 +22,8 @@ Ver el detalle de objetivo, modelo de datos y alcance en [`docs/PROJECT_PROMPT.m
 - [x] CRUD de tickets y casos raíz desde la UI (crear, editar, vincular ticket ↔ caso raíz)
 - [x] Alta de personas para asignar tickets/responsables (manual + auto-registro al loguearte)
 - [x] Importador de la planilla PO ("Seguimiento de Proyectos PO", hoja "Consolidado") — ver abajo
+- [x] Filtros de Dashboard y Tickets (plataforma, sistema, tipo, estado, asignado) + alcance por Jefe TIC
+- [x] Depurar personas (fusionar duplicados, borrar sin uso)
 - [ ] Importador genérico de Excel/CSV para Century/ClickUp/Innovación (mapeo de columnas a mano)
 - [ ] Integración automática con Redmine (Cloud Function)
 - [ ] Integración automática con ClickUp (Cloud Function)
@@ -64,6 +66,22 @@ npm run dev
 npm run build
 firebase deploy --only hosting
 ```
+
+## Modelo: plataforma vs sistema vs tipo
+
+Tres conceptos que se solían mezclar bajo "sistema":
+
+- **Plataforma** (`sourceSystem`): dónde se GESTIONA el ticket — Redmine,
+  Century, ClickUp/Excel PO, Innovación. Es una lista cerrada.
+- **Sistema** (`originSystem`): dónde OCURRE el incidente/trabajo — SAP,
+  B-POS, Infraestructura, HW, etc. Texto libre (viene de la columna
+  "Sistema" de la planilla PO cuando aplica).
+- **Tipo** (`workType`): texto libre también. Para tickets de PO viene de la
+  columna "TIPO PO/Adicional" (PO 2026, Adicional, INNO, TIC solución
+  temporal…) tal cual, sin normalizar a una lista cerrada — esa columna suma
+  valores nuevos con cada versión de la planilla. Al cargar un ticket a mano,
+  el tipo se sugiere según la plataforma (Redmine → Operativo, Century →
+  SAP, Innovación → Proyecto de Innovación) pero es editable.
 
 ## Importador de planilla PO
 

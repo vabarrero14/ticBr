@@ -105,16 +105,17 @@ export async function importPoRows(
           new Set(assigneeIds.filter((id): id is string => Boolean(id))),
         )
 
-        const tags = [row.po.sistema, row.po.pilar, row.po.tipoPoAdicional].filter(
-          (t): t is string => Boolean(t),
-        )
+        const tags = [row.po.pilar].filter((t): t is string => Boolean(t))
 
         const input: NewTicketInput = {
           sourceSystem: 'clickup_po',
           sourceId: row.po.nroPedido !== undefined ? `PO-${row.po.nroPedido}` : `PO-fila-${row.rowNumber}`,
           title: row.title,
           description: row.po.meta ?? '',
-          workType: 'proyecto_po',
+          // "Tipo" viene de la columna TIPO PO/Adicional (PO 2026, Adicional,
+          // INNO, etc.) — no es un enum fijo, ver types.ts WorkType.
+          workType: row.po.tipoPoAdicional ?? 'Proyecto PO',
+          originSystem: row.sistemaOrigen,
           status: row.status,
           priority: row.priority,
           assignees: uniqueAssignees,
