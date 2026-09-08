@@ -95,18 +95,42 @@ async function main() {
 
   try {
     // 1. Matchear los nombres trackeados contra la tabla de usuarios de Redmine.
+    //    Por palabras contenidas (no nombre exacto): en Redmine el firstname/
+    //    lastname suele traer segundo nombre o segundo apellido (ej. "Dina Lea"
+    //    "Insfran Gonzalez"), así que alcanza con que todas las palabras del
+    //    nombre trackeado aparezcan en el nombre completo del usuario. Esto
+    //    también evita falsos positivos por substring (ej. "avila" adentro de
+    //    "Gavilan"), porque compara palabra completa, no substring.
     const [userRows] = await conn.query('SELECT id, firstname, lastname FROM users WHERE status = 1')
+    const usersWithWords = userRows.map((row) => ({
+      id: row.id,
+      fullName: `${row.firstname} ${row.lastname}`,
+      words: new Set(normalizeText(`${row.firstname} ${row.lastname}`).split(/\s+/).filter(Boolean)),
+    }))
+
     const targetByNormName = new Map(TRACKED_NAMES.map((n) => [normalizeText(n), n]))
     const redmineIdByNormName = new Map()
-    for (const row of userRows) {
-      const full = normalizeText(`${row.firstname} ${row.lastname}`)
-      if (targetByNormName.has(full)) redmineIdByNormName.set(full, row.id)
+    const unmatchedNames = []
+    const ambiguousNames = []
+    for (const target of TRACKED_NAMES) {
+      const targetWords = normalizeText(target).split(/\s+/).filter(Boolean)
+      const matches = usersWithWords.filter((u) => targetWords.every((w) => u.words.has(w)))
+      if (matches.length === 1) {
+        redmineIdByNormName.set(normalizeText(target), matches[0].id)
+      } else if (matches.length === 0) {
+        unmatchedNames.push(target)
+      } else {
+        ambiguousNames.push({ name: target, candidates: matches.map((m) => m.fullName) })
+      }
     }
-    const unmatchedNames = TRACKED_NAMES.filter((n) => !redmineIdByNormName.has(normalizeText(n)))
     const redmineIds = Array.from(redmineIdByNormName.values())
 
     if (unmatchedNames.length > 0) {
-      console.warn('⚠ No se encontraron en Redmine (revisar nombre exacto):', unmatchedNames.join(', '))
+      console.warn('⚠ No se encontraron en Redmine:', unmatchedNames.join(', '))
+    }
+    if (ambiguousNames.length > 0) {
+      console.warn('⚠ Nombre ambiguo (más de un usuario matchea, no se sincronizó ninguno):')
+      for (const a of ambiguousNames) console.warn(`   "${a.name}" → ${a.candidates.join(' / ')}`)
     }
     if (redmineIds.length === 0) {
       console.log('Ningún nombre trackeado matcheó — nada para sincronizar.')
