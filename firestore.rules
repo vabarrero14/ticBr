@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // MVP: cualquier usuario autenticado (login con Google) puede leer/escribir.
+    // TODO fase 2: restringir por dominio de email o por doc en /people con rol.
+    match /tickets/{ticketId} {
+      allow read, write: if isSignedIn();
+
+      match /events/{eventId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /rootCauses/{rootCauseId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /people/{personId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /importBatches/{batchId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

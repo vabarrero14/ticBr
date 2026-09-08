@@ -1,0 +1,124 @@
+import { Link } from 'react-router-dom'
+import { StatCard } from '../components/StatCard'
+import { mockPeople, mockRootCauses, mockTickets } from '../lib/mockData'
+import {
+  SOURCE_SYSTEM_LABELS,
+  WORK_TYPE_LABELS,
+  type SourceSystem,
+  type WorkType,
+} from '../lib/types'
+
+function countBy<T extends string>(items: T[]): Record<string, number> {
+  return items.reduce<Record<string, number>>((acc, key) => {
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {})
+}
+
+export function DashboardPage() {
+  const tickets = mockTickets
+  const openTickets = tickets.filter(
+    (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
+  )
+  const withoutRootCause = openTickets.filter((t) => t.rootCauseId === null)
+
+  const bySystem = countBy(tickets.map((t) => t.sourceSystem))
+  const byWorkType = countBy(tickets.map((t) => t.workType))
+  const byPerson = countBy(tickets.flatMap((t) => t.assignees))
+
+  const personName = (id: string) =>
+    mockPeople.find((p) => p.id === id)?.name ?? id
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
+        <p className="text-sm text-slate-500">
+          Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Tickets totales" value={tickets.length} />
+        <StatCard label="Abiertos" value={openTickets.length} />
+        <StatCard label="Casos raíz activos" value={mockRootCauses.length} />
+        <StatCard
+          label="Sin caso raíz vinculado"
+          value={withoutRootCause.length}
+          hint="candidatos a revisar"
+        />
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-medium text-slate-700">Por sistema</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {Object.entries(bySystem).map(([key, count]) => (
+              <li key={key} className="flex justify-between">
+                <span className="text-slate-600">
+                  {SOURCE_SYSTEM_LABELS[key as SourceSystem]}
+                </span>
+                <span className="font-medium text-slate-900">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-medium text-slate-700">Por tipo de trabajo</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {Object.entries(byWorkType).map(([key, count]) => (
+              <li key={key} className="flex justify-between">
+                <span className="text-slate-600">
+                  {WORK_TYPE_LABELS[key as WorkType]}
+                </span>
+                <span className="font-medium text-slate-900">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-medium text-slate-700">Por persona</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {Object.entries(byPerson).map(([id, count]) => (
+              <li key={id} className="flex justify-between">
+                <span className="text-slate-600">{personName(id)}</span>
+                <span className="font-medium text-slate-900">{count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {mockRootCauses.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-slate-700">
+              Casos raíz con más recurrencia
+            </h2>
+            <Link
+              to="/casos-raiz"
+              className="text-xs font-medium text-slate-500 hover:text-slate-900"
+            >
+              Ver todos →
+            </Link>
+          </div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {mockRootCauses
+              .slice()
+              .sort((a, b) => b.linkedTicketsCount - a.linkedTicketsCount)
+              .map((rc) => (
+                <li key={rc.id} className="flex justify-between gap-4">
+                  <span className="text-slate-700">{rc.title}</span>
+                  <span className="shrink-0 font-medium text-slate-900">
+                    {rc.linkedTicketsCount} tickets
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
