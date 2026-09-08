@@ -20,7 +20,7 @@ Ver el detalle de objetivo, modelo de datos y alcance en [`docs/PROJECT_PROMPT.m
 - [x] Vista de casos raíz con tickets vinculados
 - [x] Conectado a Firestore real (proyecto `ticbr-c97da`)
 - [x] CRUD de tickets y casos raíz desde la UI (crear, editar, vincular ticket ↔ caso raíz)
-- [x] Alta de personas para asignar tickets/responsables
+- [x] Alta de personas para asignar tickets/responsables (manual + auto-registro al loguearte)
 - [ ] Importador de Excel/CSV
 - [ ] Integración automática con Redmine (Cloud Function)
 - [ ] Integración automática con ClickUp (Cloud Function)

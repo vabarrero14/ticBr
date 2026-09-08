@@ -12,6 +12,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth, googleProvider } from '../lib/firebase'
+import { ensurePersonForUser } from '../lib/firestore/people'
 
 interface AuthContextValue {
   user: User | null
@@ -30,6 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
       setLoading(false)
+
+      if (firebaseUser) {
+        // Modelo híbrido de personas: auto-registra a quien se loguea si
+        // todavía no tiene un registro en `people` (ver ensurePersonForUser).
+        ensurePersonForUser(firebaseUser).catch((err) => {
+          console.error('No se pudo auto-registrar la persona:', err)
+        })
+      }
     })
     return unsubscribe
   }, [])
