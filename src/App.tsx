@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardPage } from './pages/DashboardPage'
+import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { RootCausesPage } from './pages/RootCausesPage'
@@ -47,6 +48,16 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <PeoplePage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/importar"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ImportPage />
             </Layout>
           </ProtectedRoute>
         }

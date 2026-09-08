@@ -21,7 +21,8 @@ Ver el detalle de objetivo, modelo de datos y alcance en [`docs/PROJECT_PROMPT.m
 - [x] Conectado a Firestore real (proyecto `ticbr-c97da`)
 - [x] CRUD de tickets y casos raíz desde la UI (crear, editar, vincular ticket ↔ caso raíz)
 - [x] Alta de personas para asignar tickets/responsables (manual + auto-registro al loguearte)
-- [ ] Importador de Excel/CSV
+- [x] Importador de la planilla PO ("Seguimiento de Proyectos PO", hoja "Consolidado") — ver abajo
+- [ ] Importador genérico de Excel/CSV para Century/ClickUp/Innovación (mapeo de columnas a mano)
 - [ ] Integración automática con Redmine (Cloud Function)
 - [ ] Integración automática con ClickUp (Cloud Function)
 
@@ -63,6 +64,28 @@ npm run dev
 npm run build
 firebase deploy --only hosting
 ```
+
+## Importador de planilla PO
+
+En **Importar** (`/importar`) se sube el Excel de "Seguimiento de Proyectos PO":
+
+- Busca la hoja "Consolidado" (o la primera hoja que tenga columnas "Nro Pedido"
+  y "Tarea" en alguna de sus primeras 15 filas) y detecta el encabezado por
+  **nombre de columna**, no por letra fija — tolera que en futuras versiones de
+  la planilla se agreguen filas/columnas arriba o se reordenen, mientras los
+  nombres de columna se mantengan.
+- Cada fila se convierte en un `Ticket` con `sourceSystem: 'clickup_po'`,
+  `workType: 'proyecto_po'`, estado/prioridad normalizados, y todos los campos
+  propios de PO (Century, Redmine TIC, Sistema, Pilar, Proyecto, Meta,
+  documentaciones, etc.) en `ticket.po`. Las columnas con fecha por encabezado
+  ("bitácora" de seguimiento semanal) se guardan como `ticket.log`.
+- Dueño / Jefe TIC / Analista se auto-registran como `Person` si no existen
+  (buscando por nombre, tolerante a tildes). Celdas con dos personas separadas
+  por "/" se dividen en asignados individuales.
+- Reimportar el mismo archivo (o una versión más nueva) **no duplica**: salta
+  las filas cuyo `Nro Pedido` ya tiene un ticket creado.
+- El parser vive en `src/lib/poImport/parseConsolidado.ts` (puro, sin Firebase)
+  y la escritura a Firestore en `src/lib/firestore/importPo.ts`.
 
 ## Estructura
 

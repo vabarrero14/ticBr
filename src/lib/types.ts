@@ -27,6 +27,49 @@ export interface Person {
   active: boolean
 }
 
+/**
+ * Un evento del historial de seguimiento de un ticket. Hoy solo lo llena el
+ * importador de PO (parsea las columnas con fecha de la planilla "Consolidado"),
+ * pero el modelo queda abierto para loguear eventos manuales más adelante.
+ */
+export interface TicketLogEntry {
+  /** Tal cual viene de la planilla — a veces sin año, o con una aclaración. */
+  date: string
+  note: string
+}
+
+/**
+ * Campos propios de un punto de la planificación PO (hoja "Consolidado" de la
+ * planilla de Seguimiento de Proyectos PO). Todo opcional: un ticket que no
+ * viene de esa planilla simplemente no tiene este bloque.
+ */
+export interface PoDetails {
+  nroPedido?: number
+  century?: string
+  redmineTic?: string
+  clickup?: string
+  tipoPoAdicional?: string
+  direccion?: string
+  jefatura?: string
+  sistema?: string
+  solicitudFirmada?: string
+  dfAlcance?: string
+  actaPrueba?: string
+  actaCierre?: string
+  estimacionHoras?: number
+  mesEjecucion?: string
+  trimestre?: string
+  tipoProveedor?: string
+  responsableProveedor?: string
+  pilar?: string
+  proyecto?: string
+  meta?: string
+  proveedor?: string
+  solProyecto?: string
+  fechaLimite?: string
+  observaciones?: string
+}
+
 export interface Ticket {
   id: string
   sourceSystem: SourceSystem
@@ -45,6 +88,8 @@ export interface Ticket {
   closedAt?: string | null
   tags: string[]
   importedBatchId?: string | null
+  po?: PoDetails
+  log?: TicketLogEntry[]
 }
 
 export interface RootCause {
@@ -58,6 +103,17 @@ export interface RootCause {
   linkedTicketsCount: number
   firstSeenAt: string
   resolvedAt?: string | null
+}
+
+export interface ImportBatch {
+  id: string
+  fileName: string
+  sourceSheet: string
+  rowsFound: number
+  rowsImported: number
+  rowsSkipped: number
+  createdAt: string
+  createdBy: string // email de quien importó
 }
 
 export const SOURCE_SYSTEM_LABELS: Record<SourceSystem, string> = {

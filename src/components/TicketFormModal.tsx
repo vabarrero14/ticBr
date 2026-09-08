@@ -15,6 +15,7 @@ import {
 import { Field, inputClass } from './formFields'
 import { Modal } from './Modal'
 import { PersonFormModal } from './PersonFormModal'
+import { PoDetailsPanel } from './PoDetailsPanel'
 
 export function TicketFormModal({
   ticket,
@@ -91,6 +92,7 @@ export function TicketFormModal({
   return (
     <>
       <Modal title={ticket ? 'Editar ticket' : 'Nuevo ticket'} onClose={onClose}>
+        {ticket?.po && <PoDetailsPanel po={ticket.po} log={ticket.log} />}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Sistema de origen">

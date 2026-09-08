@@ -7,6 +7,7 @@ const navItems = [
   { to: '/tickets', label: 'Tickets' },
   { to: '/casos-raiz', label: 'Casos raíz' },
   { to: '/personas', label: 'Personas' },
+  { to: '/importar', label: 'Importar' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
