@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { FilterSelect } from '../components/FilterSelect'
+import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
 import { TicketFormModal } from '../components/TicketFormModal'
 import { useCollectionData } from '../hooks/useCollectionData'
+import { useJefeScope } from '../hooks/useJefeScope'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
 import {
   PRIORITY_LABELS,
@@ -21,9 +23,14 @@ const statusBadge: Record<string, string> = {
 }
 
 export function TicketsPage() {
-  const { data: tickets, loading } = useCollectionData(ticketsCol, 'createdAt')
+  const { data: allTickets, loading } = useCollectionData(ticketsCol, 'createdAt')
   const { data: people } = useCollectionData(peopleCol)
   const { data: rootCauses } = useCollectionData(rootCausesCol)
+  const [jefeScope, setJefeScope] = useJefeScope()
+  const tickets = useMemo(
+    () => allTickets.filter((t) => inJefeScope(t, jefeScope)),
+    [allTickets, jefeScope],
+  )
 
   const [sourceSystem, setSourceSystem] = useState('')
   const [workType, setWorkType] = useState('')
@@ -64,12 +71,15 @@ export function TicketsPage() {
             Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
           </p>
         </div>
-        <button
-          onClick={() => setShowNewTicket(true)}
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          + Nuevo ticket
-        </button>
+        <div className="flex items-center gap-3">
+          <JefeScopeSelector tickets={allTickets} value={jefeScope} onChange={setJefeScope} />
+          <button
+            onClick={() => setShowNewTicket(true)}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            + Nuevo ticket
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -187,9 +197,11 @@ export function TicketsPage() {
             {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                  {tickets.length === 0
+                  {allTickets.length === 0
                     ? 'Todavía no hay tickets cargados. Creá el primero.'
-                    : 'No hay tickets que coincidan con los filtros.'}
+                    : tickets.length === 0
+                      ? 'No hay tickets en este alcance (Jefe TIC). Probá "Todo TIC".'
+                      : 'No hay tickets que coincidan con los filtros.'}
                 </td>
               </tr>
             )}

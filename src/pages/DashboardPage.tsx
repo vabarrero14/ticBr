@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { StatCard } from '../components/StatCard'
 import { useCollectionData } from '../hooks/useCollectionData'
+import { useJefeScope } from '../hooks/useJefeScope'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
 import {
   SOURCE_SYSTEM_LABELS,
@@ -17,9 +19,12 @@ function countBy<T extends string>(items: T[]): Record<string, number> {
 }
 
 export function DashboardPage() {
-  const { data: tickets, loading } = useCollectionData(ticketsCol)
+  const { data: allTickets, loading } = useCollectionData(ticketsCol)
   const { data: people } = useCollectionData(peopleCol)
   const { data: rootCauses } = useCollectionData(rootCausesCol)
+  const [jefeScope, setJefeScope] = useJefeScope()
+
+  const tickets = allTickets.filter((t) => inJefeScope(t, jefeScope))
 
   const openTickets = tickets.filter(
     (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
@@ -32,7 +37,14 @@ export function DashboardPage() {
 
   const personName = (id: string) => people.find((p) => p.id === id)?.name ?? id
 
-  if (!loading && tickets.length === 0) {
+  // Recontar recurrencia de casos raíz sobre los tickets ya filtrados por
+  // alcance, para no mezclar el conteo global guardado (linkedTicketsCount)
+  // con una vista que puede estar mostrando solo un subconjunto de TIC.
+  const rootCausesInScope = rootCauses
+    .map((rc) => ({ rc, count: tickets.filter((t) => t.rootCauseId === rc.id).length }))
+    .filter(({ count }) => count > 0)
+
+  if (!loading && allTickets.length === 0) {
     return (
       <div className="space-y-2">
         <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
@@ -49,17 +61,20 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
-        <p className="text-sm text-slate-500">
-          Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-500">
+            Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
+          </p>
+        </div>
+        <JefeScopeSelector tickets={allTickets} value={jefeScope} onChange={setJefeScope} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Tickets totales" value={tickets.length} />
         <StatCard label="Abiertos" value={openTickets.length} />
-        <StatCard label="Casos raíz activos" value={rootCauses.length} />
+        <StatCard label="Casos raíz activos" value={rootCausesInScope.length} />
         <StatCard
           label="Sin caso raíz vinculado"
           value={withoutRootCause.length}
@@ -112,7 +127,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {rootCauses.length > 0 && (
+      {rootCausesInScope.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-slate-700">
@@ -126,15 +141,13 @@ export function DashboardPage() {
             </Link>
           </div>
           <ul className="mt-3 space-y-2 text-sm">
-            {rootCauses
+            {rootCausesInScope
               .slice()
-              .sort((a, b) => b.linkedTicketsCount - a.linkedTicketsCount)
-              .map((rc) => (
+              .sort((a, b) => b.count - a.count)
+              .map(({ rc, count }) => (
                 <li key={rc.id} className="flex justify-between gap-4">
                   <span className="text-slate-700">{rc.title}</span>
-                  <span className="shrink-0 font-medium text-slate-900">
-                    {rc.linkedTicketsCount} tickets
-                  </span>
+                  <span className="shrink-0 font-medium text-slate-900">{count} tickets</span>
                 </li>
               ))}
           </ul>

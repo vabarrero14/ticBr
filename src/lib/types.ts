@@ -51,6 +51,10 @@ export interface PoDetails {
   tipoPoAdicional?: string
   direccion?: string
   jefatura?: string
+  /** Responsable de negocio (no es quien ejecuta el ticket en TIC). */
+  dueno?: string
+  /** Jefe TIC a cargo — dato de contexto, usado para el filtro de alcance. */
+  jefeTic?: string
   sistema?: string
   solicitudFirmada?: string
   dfAlcance?: string

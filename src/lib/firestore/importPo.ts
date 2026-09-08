@@ -1,4 +1,13 @@
-import { addDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
+import {
+  addDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  increment,
+  query,
+  updateDoc,
+  where,
+} from 'firebase/firestore'
 import { db } from '../firebase'
 import type { ParsedPoRow } from '../poImport/parseConsolidado'
 import { normalizeText } from '../textUtils'
@@ -23,8 +32,9 @@ const norm = normalizeText
 
 /**
  * Vuelca las filas ya parseadas de la planilla PO a Firestore:
- * 1. Crea las personas (Dueño / Jefe TIC / Analista) que todavía no existan
- *    en `people`, buscando por nombre (tolerante a mayúsculas y tildes).
+ * 1. Crea las personas (solo Analista/Técnico — quien ejecuta el ticket en
+ *    TIC, no Dueño ni Jefe TIC) que todavía no existan en `people`,
+ *    buscando por nombre (tolerante a mayúsculas y tildes).
  * 2. Salta las filas cuyo `po.nroPedido` ya existe en algún ticket
  *    (permite reimportar una versión más nueva del mismo archivo sin duplicar).
  * 3. Crea un ticket por fila restante, con sourceSystem "clickup_po" y
@@ -130,4 +140,43 @@ export async function importPoRows(
     rowsSkipped: skipped,
     personsCreated,
   }
+}
+
+export interface ResetPoImportResult {
+  deletedTickets: number
+  deletedBatches: number
+}
+
+/**
+ * Borra todos los tickets importados de PO (sourceSystem "clickup_po") y los
+ * registros de `importBatches`, para poder reimportar limpio con una lógica
+ * corregida — el dedupe por Nro Pedido, si no, salta todo por "ya existe".
+ * No borra las personas creadas por importaciones anteriores (podrían estar
+ * asignadas a otras cosas); esas se limpian a mano en Personas si sobran.
+ */
+export async function resetPoImport(): Promise<ResetPoImportResult> {
+  const [ticketsSnap, batchesSnap] = await Promise.all([
+    getDocs(query(ticketsCol, where('sourceSystem', '==', 'clickup_po'))),
+    getDocs(importBatchesCol),
+  ])
+
+  // Si alguno de estos tickets ya se había vinculado a mano a un caso raíz,
+  // hay que descontarlo para no dejar linkedTicketsCount inflado.
+  const rootCauseDecrements = new Map<string, number>()
+  for (const d of ticketsSnap.docs) {
+    const rootCauseId = d.data().rootCauseId
+    if (rootCauseId) {
+      rootCauseDecrements.set(rootCauseId, (rootCauseDecrements.get(rootCauseId) ?? 0) + 1)
+    }
+  }
+
+  await Promise.all([
+    ...ticketsSnap.docs.map((d) => deleteDoc(d.ref)),
+    ...batchesSnap.docs.map((d) => deleteDoc(d.ref)),
+    ...Array.from(rootCauseDecrements.entries()).map(([id, count]) =>
+      updateDoc(doc(db, 'rootCauses', id), { linkedTicketsCount: increment(-count) }),
+    ),
+  ])
+
+  return { deletedTickets: ticketsSnap.size, deletedBatches: batchesSnap.size }
 }

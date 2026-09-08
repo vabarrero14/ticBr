@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { importPoRows, type ImportPoResult } from '../lib/firestore/importPo'
+import { importPoRows, resetPoImport, type ImportPoResult } from '../lib/firestore/importPo'
 import {
   parseConsolidadoWorkbook,
   type ParseResult,
@@ -18,6 +18,8 @@ export function ImportPage() {
   const [parseError, setParseError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<ImportPoResult | null>(null)
+  const [resetting, setResetting] = useState(false)
+  const [resetMessage, setResetMessage] = useState<string | null>(null)
 
   async function handleFile(file: File) {
     setFileName(file.name)
@@ -59,6 +61,26 @@ export function ImportPage() {
     }
   }
 
+  async function handleReset() {
+    const ok = window.confirm(
+      'Esto borra TODOS los tickets importados de PO (sourceSystem "clickup_po") y el historial de importaciones, para poder reimportar de cero. No se puede deshacer. ¿Continuar?',
+    )
+    if (!ok) return
+    setResetting(true)
+    setResetMessage(null)
+    try {
+      const res = await resetPoImport()
+      setResetMessage(
+        `Se borraron ${res.deletedTickets} tickets y ${res.deletedBatches} registros de importación. Ya podés volver a importar.`,
+      )
+    } catch (err) {
+      console.error(err)
+      setResetMessage('No se pudo resetear. Probá de nuevo.')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -91,6 +113,28 @@ export function ImportPage() {
           {fileName && <p className="mt-2 text-xs text-slate-500">{fileName}</p>}
         </div>
       )}
+
+      <details className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+        <summary className="cursor-pointer font-medium text-slate-600">
+          ¿Ya importaste antes y necesitás corregir datos? Reimportar de cero
+        </summary>
+        <div className="mt-2 space-y-2 text-slate-500">
+          <p>
+            El importador salta las filas cuyo Nro Pedido ya existe, así que
+            volver a subir el mismo archivo no corrige tickets que ya se
+            crearon con datos viejos. Este botón borra todos los tickets de PO
+            (y el historial de importación) para poder reimportar limpio.
+          </p>
+          <button
+            onClick={handleReset}
+            disabled={resetting}
+            className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            {resetting ? 'Borrando…' : 'Borrar tickets de PO importados y empezar de cero'}
+          </button>
+          {resetMessage && <p className="text-slate-600">{resetMessage}</p>}
+        </div>
+      </details>
 
       {parseError && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
