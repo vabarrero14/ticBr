@@ -9,6 +9,7 @@ import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
 import { distinctValues } from '../lib/distinctValues'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
+import { currentMonth } from '../lib/month'
 import { SOURCE_SYSTEM_LABELS, TICKET_STATUS_LABELS } from '../lib/types'
 
 function countBy<T extends string>(items: T[]): Record<string, number> {
@@ -59,7 +60,7 @@ export function DashboardPage() {
     (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
   )
   const withoutRootCause = openTickets.filter((t) => t.rootCauseId === null)
-  const boardCount = tickets.filter((t) => t.board).length
+  const boardCount = tickets.filter((t) => t.board && t.boardMonth === currentMonth()).length
 
   const byPlatform = countBy(tickets.map((t) => t.sourceSystem))
   const bySystem = countBy(tickets.map((t) => t.originSystem).filter((s): s is string => Boolean(s)))
@@ -165,7 +166,7 @@ export function DashboardPage() {
           hint="candidatos a revisar"
         />
         <Link to="/tablero" className="block">
-          <StatCard label="Temas para tablero" value={boardCount} hint="ver tablero →" />
+          <StatCard label="Temas tablero este mes" value={boardCount} hint="ver tablero →" />
         </Link>
       </div>
 

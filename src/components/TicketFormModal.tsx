@@ -13,6 +13,7 @@ import {
   type Ticket,
   type TicketStatus,
 } from '../lib/types'
+import { currentMonth } from '../lib/month'
 import { Field, inputClass } from './formFields'
 import { Modal } from './Modal'
 import { PersonFormModal } from './PersonFormModal'
@@ -74,6 +75,7 @@ export function TicketFormModal({
   const [boardCategory, setBoardCategory] = useState<BoardCategory>(
     ticket?.boardCategory ?? 'destacar',
   )
+  const [boardMonth, setBoardMonth] = useState(ticket?.boardMonth ?? currentMonth())
   const [assignees, setAssignees] = useState<string[]>(ticket?.assignees ?? [])
   const [showPersonModal, setShowPersonModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -122,6 +124,7 @@ export function TicketFormModal({
         .filter(Boolean),
       board,
       boardCategory: board ? boardCategory : undefined,
+      boardMonth: board ? boardMonth : undefined,
     }
 
     try {
@@ -301,7 +304,7 @@ export function TicketFormModal({
               Marcar para el tablero mensual
             </label>
             {board && (
-              <div className="mt-2 flex gap-4 pl-6 text-sm">
+              <div className="mt-2 flex flex-wrap items-center gap-4 pl-6 text-sm">
                 {(Object.entries(BOARD_CATEGORY_LABELS) as [BoardCategory, string][]).map(
                   ([value, label]) => (
                     <label key={value} className="flex items-center gap-1.5 text-slate-600">
@@ -315,6 +318,15 @@ export function TicketFormModal({
                     </label>
                   ),
                 )}
+                <label className="flex items-center gap-1.5 text-slate-600">
+                  Mes:
+                  <input
+                    type="month"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    value={boardMonth}
+                    onChange={(e) => setBoardMonth(e.target.value)}
+                  />
+                </label>
               </div>
             )}
           </div>

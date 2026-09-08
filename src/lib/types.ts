@@ -129,6 +129,10 @@ export interface Ticket {
   board?: boolean
   /** Solo tiene sentido si `board` es true. */
   boardCategory?: BoardCategory
+  /** Mes en que se presenta/presentó este tema, formato "YYYY-MM". Solo
+   * tiene sentido si `board` es true — permite ver el historial de qué se
+   * presentó cada mes en vez de perderlo al desmarcar. */
+  boardMonth?: string
 }
 
 export interface RootCause {
