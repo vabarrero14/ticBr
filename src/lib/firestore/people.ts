@@ -1,6 +1,7 @@
-import { addDoc, getDocs, limit, query, where } from 'firebase/firestore'
+import { addDoc, deleteDoc, doc, getDocs, limit, query, updateDoc, where } from 'firebase/firestore'
+import { db } from '../firebase'
 import type { Person } from '../types'
-import { peopleCol } from './collections'
+import { peopleCol, rootCausesCol, ticketsCol } from './collections'
 
 export type NewPersonInput = Omit<Person, 'id'>
 
@@ -32,4 +33,38 @@ export async function ensurePersonForUser(user: {
     email: user.email,
     active: true,
   })
+}
+
+/** Borra una persona. Llamar solo cuando no está en uso (ver PeoplePage) —
+ * si tiene tickets o casos raíz asignados, esos quedarían con un id
+ * "colgado" apuntando a nadie. Para eso está `mergePeople`. */
+export async function deletePerson(personId: string) {
+  await deleteDoc(doc(db, 'people', personId))
+}
+
+/**
+ * Fusiona `sourceId` en `targetId`: reasigna todos los tickets (assignees)
+ * y casos raíz (owner) que apuntaban a `sourceId` para que apunten a
+ * `targetId`, y borra a `sourceId`. Útil para unificar duplicados como
+ * "Dina" y "Dina Insfran".
+ */
+export async function mergePeople(sourceId: string, targetId: string) {
+  if (sourceId === targetId) return
+
+  const [ticketsSnap, rootCausesSnap] = await Promise.all([
+    getDocs(query(ticketsCol, where('assignees', 'array-contains', sourceId))),
+    getDocs(query(rootCausesCol, where('owner', '==', sourceId))),
+  ])
+
+  await Promise.all([
+    ...ticketsSnap.docs.map((d) => {
+      const assignees = Array.from(
+        new Set(d.data().assignees.map((a) => (a === sourceId ? targetId : a))),
+      )
+      return updateDoc(doc(db, 'tickets', d.id), { assignees })
+    }),
+    ...rootCausesSnap.docs.map((d) => updateDoc(doc(db, 'rootCauses', d.id), { owner: targetId })),
+  ])
+
+  await deletePerson(sourceId)
 }
