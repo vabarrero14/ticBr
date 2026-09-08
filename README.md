@@ -18,8 +18,9 @@ Ver el detalle de objetivo, modelo de datos y alcance en [`docs/PROJECT_PROMPT.m
 - [x] Dashboard con conteos por sistema / tipo / persona
 - [x] Tabla unificada de tickets con filtros
 - [x] Vista de casos raíz con tickets vinculados
-- [ ] Conectar a Firestore real (hoy usa datos mock en `src/lib/mockData.ts`)
-- [ ] CRUD de tickets y casos raíz desde la UI
+- [x] Conectado a Firestore real (proyecto `ticbr-c97da`)
+- [x] CRUD de tickets y casos raíz desde la UI (crear, editar, vincular ticket ↔ caso raíz)
+- [x] Alta de personas para asignar tickets/responsables
 - [ ] Importador de Excel/CSV
 - [ ] Integración automática con Redmine (Cloud Function)
 - [ ] Integración automática con ClickUp (Cloud Function)
@@ -34,16 +35,13 @@ npm install
 
 ### 2. Configurar Firebase
 
-1. En la [consola de Firebase](https://console.firebase.google.com/) de tu proyecto, andá a **Configuración del proyecto → General → Tus apps** y agregá una app web (o copiá la config de la que ya tengas).
-2. Copiá `.env.example` a `.env` y completá los valores:
+El proyecto ya usa Firebase `ticbr-c97da` (ver `.firebaserc`, commiteado — el project ID no es un dato sensible).
+
+1. Copiá `.env.example` a `.env` y completá los valores con los datos de tu app web (Firebase console → Configuración del proyecto → General → Tus apps → SDK setup and configuration):
    ```bash
    cp .env.example .env
    ```
-3. Habilitá **Authentication → Sign-in method → Google** en la consola.
-4. Copiá `.firebaserc.example` a `.firebaserc` y poné tu project ID:
-   ```bash
-   cp .firebaserc.example .firebaserc
-   ```
+2. Habilitá **Authentication → Sign-in method → Google** en la consola, si todavía no está habilitado.
 
 ### 3. Desplegar las reglas de Firestore
 
@@ -71,11 +69,13 @@ firebase deploy --only hosting
 ```
 src/
   lib/
-    types.ts        # modelo de datos (Ticket, RootCause, Person)
-    mockData.ts      # datos de ejemplo (temporal, hasta conectar Firestore)
-    firebase.ts      # inicialización de Firebase (Auth + Firestore)
+    types.ts          # modelo de datos (Ticket, RootCause, Person)
+    firebase.ts        # inicialización de Firebase (Auth + Firestore)
+    firestore/          # converters, colecciones tipadas y funciones CRUD
+  hooks/
+    useCollectionData.ts # suscripción en tiempo real a una colección
   context/
-    AuthContext.tsx  # sesión y login con Google
-  components/        # UI reutilizable (Layout, tabla, filtros, stat cards)
-  pages/              # Dashboard, Tickets, Casos raíz, Login
+    AuthContext.tsx    # sesión y login con Google
+  components/           # UI reutilizable (Layout, modales, tabla, filtros)
+  pages/                 # Dashboard, Tickets, Casos raíz, Personas, Login
 ```
