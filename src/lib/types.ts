@@ -16,6 +16,12 @@ export type SourceSystem = 'redmine' | 'century' | 'clickup_po' | 'innovacion'
  */
 export type WorkType = string
 
+/**
+ * Categoría de un ticket marcado para el tablero mensual (ver
+ * `Ticket.board` / `Ticket.boardCategory`): aspecto a destacar o a mejorar.
+ */
+export type BoardCategory = 'destacar' | 'mejorar'
+
 export type TicketStatus =
   | 'abierto'
   | 'en_progreso'
@@ -119,6 +125,10 @@ export interface Ticket {
   importedBatchId?: string | null
   po?: PoDetails
   log?: TicketLogEntry[]
+  /** Marcado como tema para el tablero mensual (destacados/lecciones aprendidas). */
+  board?: boolean
+  /** Solo tiene sentido si `board` es true. */
+  boardCategory?: BoardCategory
 }
 
 export interface RootCause {
@@ -184,4 +194,9 @@ export const ROOT_CAUSE_STATUS_LABELS: Record<RootCauseStatus, string> = {
   en_analisis: 'En análisis',
   en_solucion: 'En solución',
   resuelto: 'Resuelto',
+}
+
+export const BOARD_CATEGORY_LABELS: Record<BoardCategory, string> = {
+  destacar: 'Aspecto a destacar',
+  mejorar: 'Aspecto a mejorar',
 }

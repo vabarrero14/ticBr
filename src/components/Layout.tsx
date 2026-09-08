@@ -6,6 +6,7 @@ const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/tickets', label: 'Tickets' },
   { to: '/casos-raiz', label: 'Casos raíz' },
+  { to: '/tablero', label: 'Tablero' },
   { to: '/personas', label: 'Personas' },
   { to: '/importar', label: 'Importar' },
 ]

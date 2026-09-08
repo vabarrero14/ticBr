@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { createTicket, updateTicket } from '../lib/firestore/tickets'
 import {
+  BOARD_CATEGORY_LABELS,
   PRIORITY_LABELS,
   SOURCE_SYSTEM_LABELS,
   TICKET_STATUS_LABELS,
   WORK_TYPE_PRESETS,
+  type BoardCategory,
   type Person,
   type Priority,
   type SourceSystem,
@@ -68,6 +70,10 @@ export function TicketFormModal({
   const [area, setArea] = useState(ticket?.area ?? '')
   const [businessOwner, setBusinessOwner] = useState(ticket?.businessOwner ?? '')
   const [tags, setTags] = useState(ticket?.tags.join(', ') ?? '')
+  const [board, setBoard] = useState(ticket?.board ?? false)
+  const [boardCategory, setBoardCategory] = useState<BoardCategory>(
+    ticket?.boardCategory ?? 'destacar',
+  )
   const [assignees, setAssignees] = useState<string[]>(ticket?.assignees ?? [])
   const [showPersonModal, setShowPersonModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -114,6 +120,8 @@ export function TicketFormModal({
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
+      board,
+      boardCategory: board ? boardCategory : undefined,
     }
 
     try {
@@ -281,6 +289,34 @@ export function TicketFormModal({
                 onChange={(e) => setTags(e.target.value)}
               />
             </Field>
+          </div>
+
+          <div className="rounded-md border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={board}
+                onChange={(e) => setBoard(e.target.checked)}
+              />
+              Marcar para el tablero mensual
+            </label>
+            {board && (
+              <div className="mt-2 flex gap-4 pl-6 text-sm">
+                {(Object.entries(BOARD_CATEGORY_LABELS) as [BoardCategory, string][]).map(
+                  ([value, label]) => (
+                    <label key={value} className="flex items-center gap-1.5 text-slate-600">
+                      <input
+                        type="radio"
+                        name="boardCategory"
+                        checked={boardCategory === value}
+                        onChange={() => setBoardCategory(value)}
+                      />
+                      {label}
+                    </label>
+                  ),
+                )}
+              </div>
+            )}
           </div>
 
           <div>

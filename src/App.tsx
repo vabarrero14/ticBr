@@ -6,6 +6,7 @@ import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { RootCausesPage } from './pages/RootCausesPage'
+import { TableroPage } from './pages/TableroPage'
 import { TicketsPage } from './pages/TicketsPage'
 
 function App() {
@@ -38,6 +39,16 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <RootCausesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tablero"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <TableroPage />
             </Layout>
           </ProtectedRoute>
         }

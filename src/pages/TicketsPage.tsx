@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { FilterSelect } from '../components/FilterSelect'
 import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
+import { MyTicketsToggle } from '../components/MyTicketsToggle'
 import { TicketFormModal } from '../components/TicketFormModal'
 import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
 import { distinctValues } from '../lib/distinctValues'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
 import {
+  BOARD_CATEGORY_LABELS,
   PRIORITY_LABELS,
   SOURCE_SYSTEM_LABELS,
   TICKET_STATUS_LABELS,
@@ -44,6 +46,7 @@ export function TicketsPage() {
   const [assignee, setAssignee] = useState('')
   const [area, setArea] = useState('')
   const [owner, setOwner] = useState('')
+  const [board, setBoard] = useState('')
   const [search, setSearch] = useState('')
 
   const [showNewTicket, setShowNewTicket] = useState(false)
@@ -64,6 +67,8 @@ export function TicketsPage() {
       if (assignee && !t.assignees.includes(assignee)) return false
       if (area && t.area !== area) return false
       if (owner && t.businessOwner !== owner) return false
+      if (board === 'marcados' && !t.board) return false
+      if ((board === 'destacar' || board === 'mejorar') && t.boardCategory !== board) return false
       if (
         search &&
         !`${t.title} ${t.sourceId}`.toLowerCase().includes(search.toLowerCase())
@@ -71,7 +76,7 @@ export function TicketsPage() {
         return false
       return true
     })
-  }, [tickets, sourceSystem, originSystem, workType, status, assignee, area, owner, search])
+  }, [tickets, sourceSystem, originSystem, workType, status, assignee, area, owner, board, search])
 
   return (
     <div className="space-y-6">
@@ -103,6 +108,8 @@ export function TicketsPage() {
             className="w-56 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
           />
         </label>
+
+        <MyTicketsToggle people={people} assignee={assignee} onChange={setAssignee} />
 
         <FilterSelect
           label="Plataforma"
@@ -152,6 +159,15 @@ export function TicketsPage() {
           onChange={setOwner}
           options={owners.map((o) => ({ value: o, label: o }))}
         />
+        <FilterSelect
+          label="Tablero"
+          value={board}
+          onChange={setBoard}
+          options={[
+            { value: 'marcados', label: 'Marcados (todos)' },
+            ...Object.entries(BOARD_CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
+          ]}
+        />
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -173,7 +189,17 @@ export function TicketsPage() {
             {filtered.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-slate-900">{t.title}</div>
+                  <div className="flex items-center gap-1.5">
+                    {t.board && (
+                      <span
+                        title={t.boardCategory === 'mejorar' ? 'Tablero: a mejorar' : 'Tablero: a destacar'}
+                        className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                          t.boardCategory === 'mejorar' ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                      />
+                    )}
+                    <div className="font-medium text-slate-900">{t.title}</div>
+                  </div>
                   <div className="text-xs text-slate-400">{t.sourceId}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-600">

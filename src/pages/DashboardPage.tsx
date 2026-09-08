@@ -1,19 +1,25 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BarChart } from '../components/BarChart'
 import { FilterSelect } from '../components/FilterSelect'
 import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
+import { MyTicketsToggle } from '../components/MyTicketsToggle'
 import { StatCard } from '../components/StatCard'
 import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
 import { distinctValues } from '../lib/distinctValues'
 import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
-import { SOURCE_SYSTEM_LABELS, TICKET_STATUS_LABELS, type SourceSystem } from '../lib/types'
+import { SOURCE_SYSTEM_LABELS, TICKET_STATUS_LABELS } from '../lib/types'
 
 function countBy<T extends string>(items: T[]): Record<string, number> {
   return items.reduce<Record<string, number>>((acc, key) => {
     acc[key] = (acc[key] ?? 0) + 1
     return acc
   }, {})
+}
+
+function toBars(counts: Record<string, number>, labelOf: (key: string) => string = (k) => k) {
+  return Object.entries(counts).map(([key, value]) => ({ label: labelOf(key), value }))
 }
 
 export function DashboardPage() {
@@ -53,6 +59,7 @@ export function DashboardPage() {
     (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
   )
   const withoutRootCause = openTickets.filter((t) => t.rootCauseId === null)
+  const boardCount = tickets.filter((t) => t.board).length
 
   const byPlatform = countBy(tickets.map((t) => t.sourceSystem))
   const bySystem = countBy(tickets.map((t) => t.originSystem).filter((s): s is string => Boolean(s)))
@@ -97,6 +104,7 @@ export function DashboardPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
+        <MyTicketsToggle people={people} assignee={assignee} onChange={setAssignee} />
         <FilterSelect
           label="Plataforma"
           value={sourceSystem}
@@ -147,7 +155,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <StatCard label="Tickets totales" value={tickets.length} />
         <StatCard label="Abiertos" value={openTickets.length} />
         <StatCard label="Casos raíz activos" value={rootCausesInScope.length} />
@@ -156,78 +164,45 @@ export function DashboardPage() {
           value={withoutRootCause.length}
           hint="candidatos a revisar"
         />
+        <Link to="/tablero" className="block">
+          <StatCard label="Temas para tablero" value={boardCount} hint="ver tablero →" />
+        </Link>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por plataforma</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(byPlatform).map(([key, count]) => (
-              <li key={key} className="flex justify-between">
-                <span className="text-slate-600">
-                  {SOURCE_SYSTEM_LABELS[key as SourceSystem]}
-                </span>
-                <span className="font-medium text-slate-900">{count}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <BarChart data={toBars(byPlatform, (k) => SOURCE_SYSTEM_LABELS[k as keyof typeof SOURCE_SYSTEM_LABELS])} />
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por sistema</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(bySystem).map(([key, count]) => (
-              <li key={key} className="flex justify-between">
-                <span className="text-slate-600">{key}</span>
-                <span className="font-medium text-slate-900">{count}</span>
-              </li>
-            ))}
-            {Object.keys(bySystem).length === 0 && (
-              <li className="text-slate-400">Sin datos todavía.</li>
-            )}
-          </ul>
+          <div className="mt-3">
+            <BarChart data={toBars(bySystem)} />
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por tipo</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(byWorkType).map(([key, count]) => (
-              <li key={key} className="flex justify-between">
-                <span className="text-slate-600">{key}</span>
-                <span className="font-medium text-slate-900">{count}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <BarChart data={toBars(byWorkType)} />
+          </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por persona</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(byPerson).map(([id, count]) => (
-              <li key={id} className="flex justify-between">
-                <span className="text-slate-600">{personName(id)}</span>
-                <span className="font-medium text-slate-900">{count}</span>
-              </li>
-            ))}
-            {Object.keys(byPerson).length === 0 && (
-              <li className="text-slate-400">Sin asignaciones todavía.</li>
-            )}
-          </ul>
+          <div className="mt-3">
+            <BarChart data={toBars(byPerson, personName)} />
+          </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
           <h2 className="text-sm font-medium text-slate-700">Por gerencia</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {Object.entries(byArea).map(([key, count]) => (
-              <li key={key} className="flex justify-between">
-                <span className="text-slate-600">{key}</span>
-                <span className="font-medium text-slate-900">{count}</span>
-              </li>
-            ))}
-            {Object.keys(byArea).length === 0 && (
-              <li className="text-slate-400">Sin datos todavía.</li>
-            )}
-          </ul>
+          <div className="mt-3">
+            <BarChart data={toBars(byArea)} />
+          </div>
         </div>
       </div>
 
