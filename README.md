@@ -25,9 +25,9 @@ Ver el detalle de objetivo, modelo de datos y alcance en [`docs/PROJECT_PROMPT.m
 - [x] Filtros de Dashboard y Tickets (plataforma, sistema, tipo, estado, asignado) + alcance por Jefe TIC
 - [x] Depurar personas (fusionar duplicados, borrar sin uso)
 - [x] Gráficos (barras) en el Dashboard, botón "Mis tickets", tablero mensual con mes/historial
-- [x] Sincronización automática con Redmine (Cloud Function) — ver abajo, pendiente de desplegar
+- [x] Sincronización con Redmine (script local, `scripts/redmine-sync/`) — ver abajo
 - [ ] Importador genérico de Excel/CSV para Century/ClickUp/Innovación (mapeo de columnas a mano)
-- [ ] Integración automática con ClickUp (Cloud Function)
+- [ ] Integración automática con ClickUp
 
 ## Setup local
 
@@ -108,67 +108,72 @@ En **Importar** (`/importar`) se sube el Excel de "Seguimiento de Proyectos PO":
 
 ## Sincronización con Redmine
 
-Una Cloud Function trae los **tickets abiertos** de Redmine asignados al
-equipo trackeado (lista editable en `functions/src/redmineSync.ts` →
+Un script en `scripts/redmine-sync/` trae los **tickets abiertos** de Redmine
+asignados al equipo trackeado (lista editable ahí mismo, en `index.mjs` →
 `TRACKED_NAMES`) y los sincroniza a `tickets` en Firestore
-(`sourceSystem: 'redmine'`, `workType: 'Operativo'`). Corre cada 10 minutos
-sola; hay también un botón **"Sincronizar Redmine ahora"** en `/importar`
-para probarla sin esperar. Los que ya estaban sincronizados como abiertos y
-se cerraron en Redmine se marcan `resuelto` automáticamente. Nunca pisa
-`rootCauseId`, `tags` ni los campos de `board*` de un ticket que ya exista —
-solo actualiza lo que viene de Redmine.
+(`sourceSystem: 'redmine'`, `workType: 'Operativo'`). Los que ya estaban
+sincronizados como abiertos y se cerraron en Redmine se marcan `resuelto`
+automáticamente. Nunca pisa `rootCauseId`, `tags` ni los campos de `board*`
+de un ticket que ya exista — solo actualiza lo que viene de Redmine.
 
-**Por qué es una Cloud Function y no una llamada directa desde el navegador:**
+**Por qué es un script local y no algo dentro de la app o una Cloud Function:**
 un React que corre en el navegador de cada usuario no puede tener la
 contraseña de la base de datos en su código — cualquiera con las herramientas
-de desarrollador la vería. La función vive del lado del servidor, con la
-contraseña guardada como *secret* de Firebase (nunca en el repo ni en el
-bundle del frontend).
+de desarrollador la vería. Una Cloud Function resolvería eso, pero exige plan
+Blaze (pago por uso) y que el servidor de Redmine sea alcanzable desde Google
+Cloud. Corriendo el script desde tu propia máquina, ninguna de las dos cosas
+hace falta: no hay plan que cambiar, y como tu PC ya está en la red donde
+vive `redminetic.bristol.com.py`, la conexión no tiene el problema de
+alcance que sí tendría algo corriendo en la nube de Google.
 
-### Requisitos antes de desplegarla
+### Setup (una sola vez)
 
-1. **Plan Blaze** (pago por uso) en el proyecto Firebase — las Cloud
-   Functions no corren en el plan gratuito Spark porque necesitan salir a
-   internet a un servidor externo. Consola de Firebase → ícono de engranaje →
-   **Uso y facturación** → **Detalles y configuración** → **Modificar plan**.
-   El uso que hace esta función (una consulta corta cada 10 minutos) entra
-   cómodo en la capa gratuita del plan Blaze.
-2. **Que el servidor `redminetic.bristol.com.py:3306` sea alcanzable desde
-   Google Cloud.** Si solo acepta conexiones desde la red interna/VPN de la
-   oficina, la función va a fallar con un timeout de conexión al primer
-   intento — en ese caso hace falta un [Serverless VPC Access
-   connector](https://firebase.google.com/docs/functions/networking) (IP de
-   salida fija que tu equipo de infra pueda habilitar en el firewall) o una
-   VPN entre Google Cloud y la red de Bristol. Es un paso de infraestructura
-   aparte, no de código.
+1. **Descargar la clave del Admin SDK**: Firebase console → ⚙️ Configuración
+   del proyecto → pestaña **Cuentas de servicio** → **Generar nueva clave
+   privada**. Se descarga un `.json` — guardalo **fuera del repo** (por
+   ejemplo en tu carpeta de usuario), nunca dentro de `ticbr/`.
+2. Configurar el script:
+   ```bash
+   cd scripts/redmine-sync
+   npm install
+   cp .env.example .env
+   ```
+   Completá `.env` con la ruta a ese `.json` y los datos de conexión a
+   Redmine (host/puerto/base ya vienen precargados en `.env.example`, falta
+   usuario y contraseña).
+3. Publicar el índice de Firestore que necesita la sincronización (una vez,
+   no requiere plan Blaze — es solo Firestore):
+   ```bash
+   npx firebase-tools deploy --only firestore:indexes
+   ```
 
-### Configurar las credenciales (una sola vez)
-
-```bash
-npx firebase-tools functions:secrets:set REDMINE_DB_USER
-npx firebase-tools functions:secrets:set REDMINE_DB_PASSWORD
-```
-
-Cada comando pide el valor de forma interactiva (no queda en el historial de
-la terminal). Quedan guardados en Secret Manager, no en el repo.
-
-### Desplegar
+### Correr
 
 ```bash
-npm --prefix functions install
-npx firebase-tools deploy --only functions,firestore:indexes
+cd scripts/redmine-sync
+npm run sync
 ```
 
-(`firestore:indexes` porque la sincronización necesita un índice compuesto
-sobre `tickets` para encontrar los que hay que cerrar — ya está declarado en
-`firestore.indexes.json`.)
+Imprime cuántas personas matcheó, cuántos tickets sincronizó y si algún
+nombre de `TRACKED_NAMES` no encontró coincidencia en Redmine (revisar tilde
+o nombre exacto en ese caso).
+
+### Automatizarlo (opcional)
+
+Para no correrlo a mano cada vez, se puede programar con el **Programador de
+tareas de Windows**: Acción → "Iniciar un programa" → programa
+`npm.cmd`, argumentos `run sync`, "Iniciar en" la carpeta
+`scripts/redmine-sync`, y un desencadenador que lo repita cada 10-15 minutos.
+Solo sincroniza mientras tu máquina esté prendida y conectada a la red de la
+oficina — para algo siempre-activo hace falta un servidor propio (o
+reconsiderar Cloud Functions con plan Blaze más adelante).
 
 ### Si la conexión falla
 
-El mensaje de error del botón "Sincronizar Redmine ahora" (o los logs de la
-función en la consola de Firebase → Functions → Logs) dice si el problema es
-de conexión (`ETIMEDOUT`/`ECONNREFUSED` → red, ver punto 2 de arriba) o de
-credenciales (`Access denied` → usuario/contraseña).
+El mensaje de error en la terminal dice si el problema es de conexión
+(`ETIMEDOUT`/`ECONNREFUSED` → revisar que estés en la red que llega a
+`redminetic.bristol.com.py`) o de credenciales (`Access denied` →
+usuario/contraseña en `.env`).
 
 ## Estructura
 
@@ -185,8 +190,7 @@ src/
   components/           # UI reutilizable (Layout, modales, tabla, filtros)
   pages/                 # Dashboard, Tickets, Casos raíz, Personas, Login
 
-functions/               # Cloud Functions (sincronización con Redmine)
-  src/
-    index.ts              # triggers: programado (10 min) y manual (callable)
-    redmineSync.ts         # conexión a MariaDB, matching y upsert a Firestore
+scripts/
+  redmine-sync/            # script local: MariaDB (Redmine) -> Firestore
+    index.mjs
 ```

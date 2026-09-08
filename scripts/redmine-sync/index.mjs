@@ -1,13 +1,24 @@
+// Sincroniza los issues ABIERTOS de Redmine asignados al equipo trackeado
+// (TRACKED_NAMES abajo) hacia la colección `tickets` de Firestore. Pensado
+// para correr desde tu máquina (manual, o programado con el Programador de
+// tareas de Windows / cron) — no depende del plan de Firebase ni de que la
+// base de Redmine sea alcanzable desde internet, porque corre en tu red.
+//
+// Uso:
+//   1. cp .env.example .env   y completá los valores (ver ese archivo).
+//   2. npm install
+//   3. npm run sync
+
+import 'dotenv/config'
+import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import mysql from 'mysql2/promise'
-import { normalizeText } from './textUtils.js'
+import { readFileSync } from 'node:fs'
 
-/**
- * Equipo cuyos tickets abiertos de Redmine se traen a ticBr. Para sumar o
+/** Equipo cuyos tickets abiertos de Redmine se traen a ticBr. Para sumar o
  * sacar gente, editar esta lista (nombre y apellido, como figuran en
- * Redmine) y volver a desplegar (`npm --prefix functions run deploy`).
- */
-export const TRACKED_NAMES = [
+ * Redmine) y volver a correr el script. */
+const TRACKED_NAMES = [
   'Raul Peralta',
   'Dina Insfran',
   'Angel Lenguaza',
@@ -17,22 +28,15 @@ export const TRACKED_NAMES = [
   'Alcides Gonzalez',
 ]
 
-export interface RedmineDbConfig {
-  host: string
-  port: number
-  database: string
-  user: string
-  password: string
+function normalizeText(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 }
 
-export interface SyncResult {
-  usersMatched: number
-  unmatchedNames: string[]
-  issuesSynced: number
-  issuesClosedNow: number
-}
-
-function normalizeStatus(name: string | null): string {
+function normalizeStatus(name) {
   const v = normalizeText(name)
   if (!v) return 'abierto'
   if (v.includes('resuelt') || v.includes('resolved')) return 'resuelto'
@@ -44,7 +48,7 @@ function normalizeStatus(name: string | null): string {
   return 'abierto'
 }
 
-function normalizePriority(name: string | null): string {
+function normalizePriority(name) {
   const v = normalizeText(name)
   if (v.includes('baja') || v.includes('low')) return 'baja'
   if (v.includes('alta') || v.includes('high')) return 'alta'
@@ -52,61 +56,67 @@ function normalizePriority(name: string | null): string {
   return 'media'
 }
 
-function toIso(value: unknown): string | undefined {
+function toIso(value) {
   if (!value) return undefined
   const d = value instanceof Date ? value : new Date(String(value))
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
 }
 
-/**
- * Sincroniza los issues ABIERTOS de Redmine asignados a `TRACKED_NAMES`
- * hacia la colección `tickets` de Firestore (sourceSystem: 'redmine',
- * doc id determinístico `redmine-<issue id>` para que reimportar actualice
- * en vez de duplicar). Los tickets que ya estaban sincronizados como
- * abiertos y dejaron de aparecer en el resultado (se cerraron en Redmine)
- * se marcan `resuelto`.
- *
- * Solo toca los campos que vienen de Redmine (título, estado, prioridad,
- * etc.) — nunca pisa `rootCauseId`, `board*` ni `tags` de un ticket ya
- * existente, así no se pierde nada que se haya cargado a mano en ticBr.
- */
-export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncResult> {
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    console.error(`Falta ${name} en .env — copiá .env.example a .env y completalo.`)
+    process.exit(1)
+  }
+  return value
+}
+
+async function main() {
+  const credPath = requireEnv('GOOGLE_APPLICATION_CREDENTIALS')
+  const serviceAccount = JSON.parse(readFileSync(credPath, 'utf8'))
+  initializeApp({ credential: cert(serviceAccount) })
   const db = getFirestore()
-  const conn = await mysql.createConnection({
-    host: config.host,
-    port: config.port,
-    user: config.user,
-    password: config.password,
-    database: config.database,
-    connectTimeout: 10_000,
-  })
+  // A diferencia del SDK de cliente, el Admin SDK no ignora `undefined` por
+  // default y tira error (ej: area/sourceUrl cuando el issue no tiene
+  // proyecto asociado en Redmine).
+  db.settings({ ignoreUndefinedProperties: true })
+
+  const dbConfig = {
+    host: requireEnv('REDMINE_DB_HOST'),
+    port: Number(process.env.REDMINE_DB_PORT ?? '3306'),
+    database: requireEnv('REDMINE_DB_NAME'),
+    user: requireEnv('REDMINE_DB_USER'),
+    password: requireEnv('REDMINE_DB_PASSWORD'),
+  }
+
+  console.log(`Conectando a ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}…`)
+  const conn = await mysql.createConnection({ ...dbConfig, connectTimeout: 10_000 })
+  console.log('Conectado. Sincronizando…')
 
   try {
     // 1. Matchear los nombres trackeados contra la tabla de usuarios de Redmine.
-    const [userRows] = await conn.query<mysql.RowDataPacket[]>(
-      'SELECT id, firstname, lastname FROM users WHERE status = 1',
-    )
+    const [userRows] = await conn.query('SELECT id, firstname, lastname FROM users WHERE status = 1')
     const targetByNormName = new Map(TRACKED_NAMES.map((n) => [normalizeText(n), n]))
-    const redmineIdByNormName = new Map<string, number>()
+    const redmineIdByNormName = new Map()
     for (const row of userRows) {
       const full = normalizeText(`${row.firstname} ${row.lastname}`)
-      if (targetByNormName.has(full)) redmineIdByNormName.set(full, row.id as number)
+      if (targetByNormName.has(full)) redmineIdByNormName.set(full, row.id)
     }
     const unmatchedNames = TRACKED_NAMES.filter((n) => !redmineIdByNormName.has(normalizeText(n)))
     const redmineIds = Array.from(redmineIdByNormName.values())
 
+    if (unmatchedNames.length > 0) {
+      console.warn('⚠ No se encontraron en Redmine (revisar nombre exacto):', unmatchedNames.join(', '))
+    }
     if (redmineIds.length === 0) {
-      return { usersMatched: 0, unmatchedNames, issuesSynced: 0, issuesClosedNow: 0 }
+      console.log('Ningún nombre trackeado matcheó — nada para sincronizar.')
+      return
     }
 
-    // 2. Matchear/crear la Persona en Firestore para cada nombre encontrado
-    //    (mismo criterio que el importador de PO: buscar por nombre
-    //    tolerante a tildes, crear si no existe).
+    // 2. Matchear/crear la Persona en Firestore para cada nombre encontrado.
     const peopleSnap = await db.collection('people').get()
-    const personIdByNormName = new Map(
-      peopleSnap.docs.map((d) => [normalizeText(d.get('name') as string), d.id]),
-    )
-    const personIdByRedmineId = new Map<number, string>()
+    const personIdByNormName = new Map(peopleSnap.docs.map((d) => [normalizeText(d.get('name')), d.id]))
+    const personIdByRedmineId = new Map()
     for (const [normName, redmineId] of redmineIdByNormName) {
       let personId = personIdByNormName.get(normName)
       if (!personId) {
@@ -115,13 +125,14 @@ export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncRe
           .add({ name: targetByNormName.get(normName), email: '', active: true })
         personId = ref.id
         personIdByNormName.set(normName, personId)
+        console.log(`+ Persona nueva creada: ${targetByNormName.get(normName)}`)
       }
       personIdByRedmineId.set(redmineId, personId)
     }
 
     // 3. Issues abiertos asignados a esa gente.
     const placeholders = redmineIds.map(() => '?').join(',')
-    const [issueRows] = await conn.query<mysql.RowDataPacket[]>(
+    const [issueRows] = await conn.query(
       `SELECT i.id, i.subject, i.description, i.assigned_to_id, i.created_on, i.updated_on,
               s.name AS status_name,
               e.name AS priority_name,
@@ -137,25 +148,27 @@ export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncRe
     )
 
     const now = new Date().toISOString()
-    const openSourceIds = new Set<string>()
+    const openSourceIds = new Set()
+    let created = 0
+    let updated = 0
 
     for (const row of issueRows) {
       const sourceId = `RM-${row.id}`
       openSourceIds.add(sourceId)
-      const personId = personIdByRedmineId.get(row.assigned_to_id as number)
+      const personId = personIdByRedmineId.get(row.assigned_to_id)
 
-      const synced: Record<string, unknown> = {
+      const synced = {
         sourceSystem: 'redmine',
         sourceId,
-        sourceUrl: `https://${config.host}/issues/${row.id}`,
+        sourceUrl: `https://${dbConfig.host}/issues/${row.id}`,
         title: row.subject ?? sourceId,
         description: row.description ?? '',
         workType: 'Operativo',
-        status: normalizeStatus(row.status_name as string | null),
-        priority: normalizePriority(row.priority_name as string | null),
+        status: normalizeStatus(row.status_name),
+        priority: normalizePriority(row.priority_name),
         assignees: personId ? [personId] : [],
         area: row.project_name ?? undefined,
-        tags: [row.tracker_name].filter((v): v is string => Boolean(v)),
+        tags: [row.tracker_name].filter(Boolean),
         updatedAt: toIso(row.updated_on) ?? now,
       }
 
@@ -163,6 +176,7 @@ export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncRe
       const existing = await ref.get()
       if (existing.exists) {
         await ref.update(synced)
+        updated++
       } else {
         await ref.set({
           ...synced,
@@ -171,6 +185,7 @@ export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncRe
           importedBatchId: null,
           board: false,
         })
+        created++
       }
     }
 
@@ -181,24 +196,26 @@ export async function syncRedmineIssues(config: RedmineDbConfig): Promise<SyncRe
       .where('status', 'in', ['abierto', 'en_progreso', 'bloqueado'])
       .get()
 
-    let issuesClosedNow = 0
-    const closeWrites: Promise<unknown>[] = []
+    let closedNow = 0
     for (const doc of previouslyOpenSnap.docs) {
-      const sourceId = doc.get('sourceId') as string
+      const sourceId = doc.get('sourceId')
       if (!openSourceIds.has(sourceId)) {
-        issuesClosedNow++
-        closeWrites.push(doc.ref.update({ status: 'resuelto', updatedAt: now }))
+        closedNow++
+        await doc.ref.update({ status: 'resuelto', updatedAt: now })
       }
     }
-    await Promise.all(closeWrites)
 
-    return {
-      usersMatched: redmineIds.length,
-      unmatchedNames,
-      issuesSynced: issueRows.length,
-      issuesClosedNow,
-    }
+    console.log(
+      `Listo. ${redmineIds.length}/${TRACKED_NAMES.length} personas matcheadas · ` +
+        `${issueRows.length} issues abiertos (${created} nuevos, ${updated} actualizados) · ` +
+        `${closedNow} marcados resueltos (ya no están abiertos en Redmine).`,
+    )
   } finally {
     await conn.end()
   }
 }
+
+main().catch((err) => {
+  console.error('Error en la sincronización:', err.message ?? err)
+  process.exit(1)
+})

@@ -1,0 +1,13 @@
+{
+  "name": "redmine-sync",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node index.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.7.0",
+    "mysql2": "^3.11.4"
+  }
+}
