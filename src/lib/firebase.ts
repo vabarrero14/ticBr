@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAnalytics, isSupported as analyticsIsSupported } from 'firebase/analytics'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { initializeFirestore } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,6 +21,7 @@ export const auth = getAuth(app)
 // cuando el formulario los deja vacíos.
 export const db = initializeFirestore(app, { ignoreUndefinedProperties: true })
 export const googleProvider = new GoogleAuthProvider()
+export const functions = getFunctions(app)
 
 // Analytics solo funciona en el browser y requiere measurementId — se inicializa
 // de forma perezosa y silenciosa para no romper el build/tests en Node.

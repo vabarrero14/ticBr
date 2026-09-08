@@ -1,12 +1,21 @@
+import { httpsCallable } from 'firebase/functions'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { functions } from '../lib/firebase'
 import { importPoRows, resetPoImport, type ImportPoResult } from '../lib/firestore/importPo'
 import {
   parseConsolidadoWorkbook,
   type ParseResult,
 } from '../lib/poImport/parseConsolidado'
 import { PRIORITY_LABELS, TICKET_STATUS_LABELS } from '../lib/types'
+
+interface RedmineSyncResult {
+  usersMatched: number
+  unmatchedNames: string[]
+  issuesSynced: number
+  issuesClosedNow: number
+}
 
 export function ImportPage() {
   const { user } = useAuth()
@@ -20,6 +29,10 @@ export function ImportPage() {
   const [result, setResult] = useState<ImportPoResult | null>(null)
   const [resetting, setResetting] = useState(false)
   const [resetMessage, setResetMessage] = useState<string | null>(null)
+
+  const [syncingRedmine, setSyncingRedmine] = useState(false)
+  const [redmineResult, setRedmineResult] = useState<RedmineSyncResult | null>(null)
+  const [redmineError, setRedmineError] = useState<string | null>(null)
 
   async function handleFile(file: File) {
     setFileName(file.name)
@@ -81,11 +94,78 @@ export function ImportPage() {
     }
   }
 
+  async function handleSyncRedmine() {
+    setSyncingRedmine(true)
+    setRedmineError(null)
+    try {
+      const call = httpsCallable<void, RedmineSyncResult>(functions, 'syncRedmineNow')
+      const res = await call()
+      setRedmineResult(res.data)
+    } catch (err) {
+      console.error(err)
+      setRedmineError(
+        err instanceof Error
+          ? `No se pudo sincronizar: ${err.message}`
+          : 'No se pudo sincronizar. Revisá que la Cloud Function esté desplegada.',
+      )
+    } finally {
+      setSyncingRedmine(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-900">Importar planilla de PO</h1>
+        <h1 className="text-lg font-semibold text-slate-900">Importar y sincronizar</h1>
         <p className="text-sm text-slate-500">
+          Traé datos de otros sistemas a ticBr: la planilla de PO (subida manual) o
+          los tickets abiertos de Redmine (sincronización automática).
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">Redmine</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Trae los tickets ABIERTOS asignados al equipo trackeado (ver
+          TRACKED_NAMES en <code>functions/src/redmineSync.ts</code>). Corre
+          solo cada 10 minutos vía Cloud Function; este botón fuerza una
+          sincronización ahora, útil para probar.
+        </p>
+        <button
+          onClick={handleSyncRedmine}
+          disabled={syncingRedmine}
+          className="mt-3 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          {syncingRedmine ? 'Sincronizando…' : 'Sincronizar Redmine ahora'}
+        </button>
+
+        {redmineError && (
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {redmineError}
+          </p>
+        )}
+
+        {redmineResult && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <p>
+              {redmineResult.usersMatched} de {redmineResult.usersMatched + redmineResult.unmatchedNames.length}{' '}
+              personas encontradas en Redmine · {redmineResult.issuesSynced} tickets abiertos
+              sincronizados · {redmineResult.issuesClosedNow} se marcaron resueltos (ya no
+              están abiertos en Redmine).
+            </p>
+            {redmineResult.unmatchedNames.length > 0 && (
+              <p className="mt-1 text-amber-700">
+                No se encontraron en Redmine: {redmineResult.unmatchedNames.join(', ')} —
+                revisá que el nombre coincida exactamente con el de Redmine.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h2 className="font-medium text-slate-900">Planilla de PO</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Subí el Excel de "Seguimiento de Proyectos PO" (hoja "Consolidado"). Se
           detectan las columnas por nombre, así que sirve tanto para este archivo
           como para versiones futuras con la misma estructura.
