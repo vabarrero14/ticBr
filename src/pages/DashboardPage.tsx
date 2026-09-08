@@ -27,9 +27,13 @@ export function DashboardPage() {
   const [workType, setWorkType] = useState('')
   const [status, setStatus] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [area, setArea] = useState('')
+  const [owner, setOwner] = useState('')
 
   const originSystems = useMemo(() => distinctValues(allTickets, (t) => t.originSystem), [allTickets])
   const workTypes = useMemo(() => distinctValues(allTickets, (t) => t.workType), [allTickets])
+  const areas = useMemo(() => distinctValues(allTickets, (t) => t.area), [allTickets])
+  const owners = useMemo(() => distinctValues(allTickets, (t) => t.businessOwner), [allTickets])
 
   const tickets = useMemo(() => {
     return allTickets.filter((t) => {
@@ -39,9 +43,11 @@ export function DashboardPage() {
       if (workType && t.workType !== workType) return false
       if (status && t.status !== status) return false
       if (assignee && !t.assignees.includes(assignee)) return false
+      if (area && t.area !== area) return false
+      if (owner && t.businessOwner !== owner) return false
       return true
     })
-  }, [allTickets, jefeScope, sourceSystem, originSystem, workType, status, assignee])
+  }, [allTickets, jefeScope, sourceSystem, originSystem, workType, status, assignee, area, owner])
 
   const openTickets = tickets.filter(
     (t) => t.status !== 'resuelto' && t.status !== 'cerrado',
@@ -52,6 +58,7 @@ export function DashboardPage() {
   const bySystem = countBy(tickets.map((t) => t.originSystem).filter((s): s is string => Boolean(s)))
   const byWorkType = countBy(tickets.map((t) => t.workType))
   const byPerson = countBy(tickets.flatMap((t) => t.assignees))
+  const byArea = countBy(tickets.map((t) => t.area).filter((a): a is string => Boolean(a)))
 
   const personName = (id: string) => people.find((p) => p.id === id)?.name ?? id
 
@@ -126,6 +133,18 @@ export function DashboardPage() {
           onChange={setAssignee}
           options={people.map((p) => ({ value: p.id, label: p.name }))}
         />
+        <FilterSelect
+          label="Gerencia"
+          value={area}
+          onChange={setArea}
+          options={areas.map((a) => ({ value: a, label: a }))}
+        />
+        <FilterSelect
+          label="Dueño"
+          value={owner}
+          onChange={setOwner}
+          options={owners.map((o) => ({ value: o, label: o }))}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -192,6 +211,21 @@ export function DashboardPage() {
             ))}
             {Object.keys(byPerson).length === 0 && (
               <li className="text-slate-400">Sin asignaciones todavía.</li>
+            )}
+          </ul>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-medium text-slate-700">Por gerencia</h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {Object.entries(byArea).map(([key, count]) => (
+              <li key={key} className="flex justify-between">
+                <span className="text-slate-600">{key}</span>
+                <span className="font-medium text-slate-900">{count}</span>
+              </li>
+            ))}
+            {Object.keys(byArea).length === 0 && (
+              <li className="text-slate-400">Sin datos todavía.</li>
             )}
           </ul>
         </div>

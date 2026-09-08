@@ -36,6 +36,8 @@ export function TicketFormModal({
   people,
   existingSystems = [],
   existingWorkTypes = [],
+  existingAreas = [],
+  existingOwners = [],
   onClose,
 }: {
   ticket?: Ticket
@@ -44,6 +46,10 @@ export function TicketFormModal({
   existingSystems?: string[]
   /** Valores de "Tipo" ya vistos en otros tickets, para autocompletar. */
   existingWorkTypes?: string[]
+  /** Valores de "Área / gerencia" ya vistos, para autocompletar. */
+  existingAreas?: string[]
+  /** Valores de "Dueño" ya vistos, para autocompletar. */
+  existingOwners?: string[]
   onClose: () => void
 }) {
   const [sourceSystem, setSourceSystem] = useState<SourceSystem>(
@@ -60,6 +66,7 @@ export function TicketFormModal({
   const [status, setStatus] = useState<TicketStatus>(ticket?.status ?? 'abierto')
   const [priority, setPriority] = useState<Priority>(ticket?.priority ?? 'media')
   const [area, setArea] = useState(ticket?.area ?? '')
+  const [businessOwner, setBusinessOwner] = useState(ticket?.businessOwner ?? '')
   const [tags, setTags] = useState(ticket?.tags.join(', ') ?? '')
   const [assignees, setAssignees] = useState<string[]>(ticket?.assignees ?? [])
   const [showPersonModal, setShowPersonModal] = useState(false)
@@ -102,6 +109,7 @@ export function TicketFormModal({
       priority,
       assignees,
       area: area.trim() || undefined,
+      businessOwner: businessOwner.trim() || undefined,
       tags: tags
         .split(',')
         .map((t) => t.trim())
@@ -238,13 +246,33 @@ export function TicketFormModal({
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Área / gerencia">
               <input
                 className={inputClass}
+                list="area-options"
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
               />
+              <datalist id="area-options">
+                {existingAreas.map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label="Dueño (negocio)">
+              <input
+                className={inputClass}
+                list="owner-options"
+                value={businessOwner}
+                onChange={(e) => setBusinessOwner(e.target.value)}
+                placeholder="Responsable del lado del negocio"
+              />
+              <datalist id="owner-options">
+                {existingOwners.map((o) => (
+                  <option key={o} value={o} />
+                ))}
+              </datalist>
             </Field>
             <Field label="Tags (separados por coma)">
               <input

@@ -20,7 +20,7 @@ export interface ParsedPoRow {
    * separado si venían dos personas juntas en una celda tipo
    * "Raúl Peralta / Jorge Clarice", y deduplicado. Dueño y Jefe TIC son
    * datos de contexto (negocio/jefatura), no responsables de ejecución —
-   * quedan en `po.dueno` / `po.jefeTic`, no acá. */
+   * `dueno` sube a Ticket.businessOwner y `jefeTic` a `po.jefeTic`. */
   assigneeNames: string[]
   po: {
     nroPedido?: number
@@ -30,7 +30,6 @@ export interface ParsedPoRow {
     tipoPoAdicional?: string
     direccion?: string
     jefatura?: string
-    dueno?: string
     jefeTic?: string
     solicitudFirmada?: string
     dfAlcance?: string
@@ -270,9 +269,8 @@ export function parseConsolidadoWorkbook(buffer: ArrayBuffer): ParseResult {
     const analistaTecnico = colAnalista !== -1 ? cellText(row[colAnalista]) : undefined
     // Responsable de ejecución = solo Analista/Técnico. Dueño (negocio) y
     // Jefe TIC (jefatura) son contexto, no gente a la que se le "asigna" el
-    // ticket — van a po.dueno / po.jefeTic.
+    // ticket — dueno sube a Ticket.businessOwner, jefeTic queda en po.jefeTic.
     const assigneeNames = Array.from(new Set(splitNames(analistaTecnico)))
-    if (dueno) po.dueno = dueno
     if (jefeTic) po.jefeTic = jefeTic
 
     rows.push({

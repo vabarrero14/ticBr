@@ -63,8 +63,6 @@ export interface PoDetails {
   tipoPoAdicional?: string
   direccion?: string
   jefatura?: string
-  /** Responsable de negocio (no es quien ejecuta el ticket en TIC). */
-  dueno?: string
   /** Jefe TIC a cargo — dato de contexto, usado para el filtro de alcance. */
   jefeTic?: string
   solicitudFirmada?: string
@@ -103,8 +101,16 @@ export interface Ticket {
   originSystem?: string
   status: TicketStatus
   priority: Priority
-  assignees: string[] // Person.id[]
+  assignees: string[] // Person.id[] — quién EJECUTA el ticket en TIC
+  /** Gerencia responsable del negocio (no de quién lo ejecuta). */
   area?: string
+  /**
+   * Responsable de negocio ("Dueño" de la planilla PO) — texto libre, no
+   * necesariamente alguien registrado en `people`. Distinto de `assignees`:
+   * es quien pidió/es dueño del tema del lado del negocio, no quien lo
+   * lleva adelante en TIC.
+   */
+  businessOwner?: string
   rootCauseId: string | null
   createdAt: string // ISO date
   updatedAt: string

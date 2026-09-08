@@ -34,12 +34,16 @@ export function TicketsPage() {
 
   const originSystems = useMemo(() => distinctValues(allTickets, (t) => t.originSystem), [allTickets])
   const workTypes = useMemo(() => distinctValues(allTickets, (t) => t.workType), [allTickets])
+  const areas = useMemo(() => distinctValues(allTickets, (t) => t.area), [allTickets])
+  const owners = useMemo(() => distinctValues(allTickets, (t) => t.businessOwner), [allTickets])
 
   const [sourceSystem, setSourceSystem] = useState('')
   const [originSystem, setOriginSystem] = useState('')
   const [workType, setWorkType] = useState('')
   const [status, setStatus] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [area, setArea] = useState('')
+  const [owner, setOwner] = useState('')
   const [search, setSearch] = useState('')
 
   const [showNewTicket, setShowNewTicket] = useState(false)
@@ -58,6 +62,8 @@ export function TicketsPage() {
       if (workType && t.workType !== workType) return false
       if (status && t.status !== status) return false
       if (assignee && !t.assignees.includes(assignee)) return false
+      if (area && t.area !== area) return false
+      if (owner && t.businessOwner !== owner) return false
       if (
         search &&
         !`${t.title} ${t.sourceId}`.toLowerCase().includes(search.toLowerCase())
@@ -65,7 +71,7 @@ export function TicketsPage() {
         return false
       return true
     })
-  }, [tickets, sourceSystem, originSystem, workType, status, assignee, search])
+  }, [tickets, sourceSystem, originSystem, workType, status, assignee, area, owner, search])
 
   return (
     <div className="space-y-6">
@@ -133,6 +139,18 @@ export function TicketsPage() {
           value={assignee}
           onChange={setAssignee}
           options={people.map((p) => ({ value: p.id, label: p.name }))}
+        />
+        <FilterSelect
+          label="Gerencia"
+          value={area}
+          onChange={setArea}
+          options={areas.map((a) => ({ value: a, label: a }))}
+        />
+        <FilterSelect
+          label="Dueño"
+          value={owner}
+          onChange={setOwner}
+          options={owners.map((o) => ({ value: o, label: o }))}
         />
       </div>
 
@@ -222,6 +240,8 @@ export function TicketsPage() {
           people={people}
           existingSystems={originSystems}
           existingWorkTypes={workTypes}
+          existingAreas={areas}
+          existingOwners={owners}
           onClose={() => setShowNewTicket(false)}
         />
       )}
@@ -231,6 +251,8 @@ export function TicketsPage() {
           people={people}
           existingSystems={originSystems}
           existingWorkTypes={workTypes}
+          existingAreas={areas}
+          existingOwners={owners}
           onClose={() => setEditingTicket(null)}
         />
       )}

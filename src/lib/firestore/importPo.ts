@@ -120,6 +120,7 @@ export async function importPoRows(
           priority: row.priority,
           assignees: uniqueAssignees,
           area: row.gerencia,
+          businessOwner: row.dueno,
           rootCauseId: null,
           tags,
           importedBatchId: batchRef.id,

@@ -9,7 +9,6 @@ const FIELD_LABELS: Partial<Record<keyof PoDetails, string>> = {
   tipoPoAdicional: 'Tipo PO/Adicional',
   direccion: 'Dirección',
   jefatura: 'Jefatura',
-  dueno: 'Dueño (negocio)',
   jefeTic: 'Jefe TIC',
   solicitudFirmada: 'Solicitud de requerimiento firmado',
   dfAlcance: 'DF/Alcance',
