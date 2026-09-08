@@ -13,7 +13,6 @@ vite.config.d.ts
 .firebase/
 firebase-debug.log
 firestore-debug.log
-.firebaserc
 
 .DS_Store
 *.log

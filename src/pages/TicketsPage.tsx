@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
 import { FilterSelect } from '../components/FilterSelect'
-import { mockPeople, mockRootCauses, mockTickets } from '../lib/mockData'
+import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
+import { TicketFormModal } from '../components/TicketFormModal'
+import { useCollectionData } from '../hooks/useCollectionData'
+import { peopleCol, rootCausesCol, ticketsCol } from '../lib/firestore/collections'
 import {
   PRIORITY_LABELS,
   SOURCE_SYSTEM_LABELS,
   TICKET_STATUS_LABELS,
   WORK_TYPE_LABELS,
+  type Ticket,
 } from '../lib/types'
 
 const statusBadge: Record<string, string> = {
@@ -17,20 +21,27 @@ const statusBadge: Record<string, string> = {
 }
 
 export function TicketsPage() {
+  const { data: tickets, loading } = useCollectionData(ticketsCol, 'createdAt')
+  const { data: people } = useCollectionData(peopleCol)
+  const { data: rootCauses } = useCollectionData(rootCausesCol)
+
   const [sourceSystem, setSourceSystem] = useState('')
   const [workType, setWorkType] = useState('')
   const [status, setStatus] = useState('')
   const [assignee, setAssignee] = useState('')
   const [search, setSearch] = useState('')
 
-  const personName = (id: string) =>
-    mockPeople.find((p) => p.id === id)?.name ?? id
+  const [showNewTicket, setShowNewTicket] = useState(false)
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null)
+  const [linkingTicket, setLinkingTicket] = useState<Ticket | null>(null)
+
+  const personName = (id: string) => people.find((p) => p.id === id)?.name ?? id
 
   const rootCauseTitle = (id: string | null) =>
-    id ? mockRootCauses.find((rc) => rc.id === id)?.title : null
+    id ? rootCauses.find((rc) => rc.id === id)?.title : null
 
   const filtered = useMemo(() => {
-    return mockTickets.filter((t) => {
+    return tickets.filter((t) => {
       if (sourceSystem && t.sourceSystem !== sourceSystem) return false
       if (workType && t.workType !== workType) return false
       if (status && t.status !== status) return false
@@ -42,15 +53,23 @@ export function TicketsPage() {
         return false
       return true
     })
-  }, [sourceSystem, workType, status, assignee, search])
+  }, [tickets, sourceSystem, workType, status, assignee, search])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">Tickets</h1>
-        <p className="text-sm text-slate-500">
-          Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-slate-900">Tickets</h1>
+          <p className="text-sm text-slate-500">
+            Vista unificada de Redmine, Century, ClickUp/Excel PO e Innovación.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowNewTicket(true)}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+        >
+          + Nuevo ticket
+        </button>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4">
@@ -95,7 +114,7 @@ export function TicketsPage() {
           label="Asignado"
           value={assignee}
           onChange={setAssignee}
-          options={mockPeople.map((p) => ({ value: p.id, label: p.name }))}
+          options={people.map((p) => ({ value: p.id, label: p.name }))}
         />
       </div>
 
@@ -110,6 +129,7 @@ export function TicketsPage() {
               <th className="px-4 py-2 font-medium">Prioridad</th>
               <th className="px-4 py-2 font-medium">Asignado</th>
               <th className="px-4 py-2 font-medium">Caso raíz</th>
+              <th className="px-4 py-2 font-medium" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -136,29 +156,65 @@ export function TicketsPage() {
                   {PRIORITY_LABELS[t.priority]}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
-                  {t.assignees.map(personName).join(', ')}
+                  {t.assignees.map(personName).join(', ') || '—'}
                 </td>
                 <td className="px-4 py-3">
-                  {rootCauseTitle(t.rootCauseId) ? (
-                    <span className="text-slate-700">
-                      {rootCauseTitle(t.rootCauseId)}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-amber-600">Sin vincular</span>
-                  )}
+                  <button
+                    onClick={() => setLinkingTicket(t)}
+                    className="text-left"
+                  >
+                    {rootCauseTitle(t.rootCauseId) ? (
+                      <span className="text-slate-700 hover:underline">
+                        {rootCauseTitle(t.rootCauseId)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-600 hover:underline">
+                        Sin vincular
+                      </span>
+                    )}
+                  </button>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => setEditingTicket(t)}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-900"
+                  >
+                    Editar
+                  </button>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                  No hay tickets que coincidan con los filtros.
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  {tickets.length === 0
+                    ? 'Todavía no hay tickets cargados. Creá el primero.'
+                    : 'No hay tickets que coincidan con los filtros.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {showNewTicket && (
+        <TicketFormModal people={people} onClose={() => setShowNewTicket(false)} />
+      )}
+      {editingTicket && (
+        <TicketFormModal
+          ticket={editingTicket}
+          people={people}
+          onClose={() => setEditingTicket(null)}
+        />
+      )}
+      {linkingTicket && (
+        <LinkRootCauseModal
+          ticket={linkingTicket}
+          rootCauses={rootCauses}
+          people={people}
+          onClose={() => setLinkingTicket(null)}
+        />
+      )}
     </div>
   )
 }

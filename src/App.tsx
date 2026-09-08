@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { PeoplePage } from './pages/PeoplePage'
 import { RootCausesPage } from './pages/RootCausesPage'
 import { TicketsPage } from './pages/TicketsPage'
 
@@ -36,6 +37,16 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <RootCausesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/personas"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PeoplePage />
             </Layout>
           </ProtectedRoute>
         }
