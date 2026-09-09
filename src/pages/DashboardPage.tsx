@@ -20,7 +20,7 @@ function countBy<T extends string>(items: T[]): Record<string, number> {
 }
 
 function toBars(counts: Record<string, number>, labelOf: (key: string) => string = (k) => k) {
-  return Object.entries(counts).map(([key, value]) => ({ label: labelOf(key), value }))
+  return Object.entries(counts).map(([key, value]) => ({ label: labelOf(key), value, key }))
 }
 
 export function DashboardPage() {
@@ -69,6 +69,27 @@ export function DashboardPage() {
   const byArea = countBy(tickets.map((t) => t.area).filter((a): a is string => Boolean(a)))
 
   const personName = (id: string) => people.find((p) => p.id === id)?.name ?? id
+
+  /** URL a /tickets con los filtros actuales del Dashboard, pisando (o
+   * agregando) la dimensión que se acaba de clickear — así una barra o el
+   * total de tickets llevan directo a la lista real, no solo al número. */
+  function ticketsUrl(
+    override: Partial<{
+      sourceSystem: string
+      originSystem: string
+      workType: string
+      status: string
+      assignee: string
+      area: string
+      owner: string
+    }> = {},
+  ) {
+    const merged = { sourceSystem, originSystem, workType, status, assignee, area, owner, ...override }
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(merged)) if (value) params.set(key, value)
+    const qs = params.toString()
+    return qs ? `/tickets?${qs}` : '/tickets'
+  }
 
   // Recontar recurrencia de casos raíz sobre los tickets ya filtrados por
   // alcance/filtros, para no mezclar el conteo global guardado
@@ -157,7 +178,9 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <StatCard label="Tickets totales" value={tickets.length} />
+        <Link to={ticketsUrl()} className="block">
+          <StatCard label="Tickets totales" value={tickets.length} hint="ver lista →" />
+        </Link>
         <StatCard label="Abiertos" value={openTickets.length} />
         <StatCard label="Casos raíz activos" value={rootCausesInScope.length} />
         <StatCard
@@ -174,35 +197,41 @@ export function DashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por plataforma</h2>
           <div className="mt-3">
-            <BarChart data={toBars(byPlatform, (k) => SOURCE_SYSTEM_LABELS[k as keyof typeof SOURCE_SYSTEM_LABELS])} />
+            <BarChart
+              data={toBars(byPlatform, (k) => SOURCE_SYSTEM_LABELS[k as keyof typeof SOURCE_SYSTEM_LABELS])}
+              hrefFor={(key) => ticketsUrl({ sourceSystem: key })}
+            />
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por sistema</h2>
           <div className="mt-3">
-            <BarChart data={toBars(bySystem)} />
+            <BarChart data={toBars(bySystem)} hrefFor={(key) => ticketsUrl({ originSystem: key })} />
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por tipo</h2>
           <div className="mt-3">
-            <BarChart data={toBars(byWorkType)} />
+            <BarChart data={toBars(byWorkType)} hrefFor={(key) => ticketsUrl({ workType: key })} />
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-medium text-slate-700">Por persona</h2>
           <div className="mt-3">
-            <BarChart data={toBars(byPerson, personName)} />
+            <BarChart
+              data={toBars(byPerson, personName)}
+              hrefFor={(key) => ticketsUrl({ assignee: key })}
+            />
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
           <h2 className="text-sm font-medium text-slate-700">Por gerencia</h2>
           <div className="mt-3">
-            <BarChart data={toBars(byArea)} />
+            <BarChart data={toBars(byArea)} hrefFor={(key) => ticketsUrl({ area: key })} />
           </div>
         </div>
       </div>

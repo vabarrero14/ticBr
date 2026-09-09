@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FilterSelect } from '../components/FilterSelect'
 import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
@@ -39,6 +40,12 @@ export function TicketsPage() {
   const areas = useMemo(() => distinctValues(allTickets, (t) => t.area), [allTickets])
   const owners = useMemo(() => distinctValues(allTickets, (t) => t.businessOwner), [allTickets])
 
+  // Los filtros pueden venir precargados por URL (ej: un click en una barra
+  // del Dashboard te trae acá ya filtrado — "veo un número" pasa a "veo
+  // cuáles son"). El efecto de abajo los relee cada vez que cambia la URL,
+  // no solo al montar, por si ya estabas en /tickets y volvés a clickear
+  // otra barra distinta.
+  const [searchParams] = useSearchParams()
   const [sourceSystem, setSourceSystem] = useState('')
   const [originSystem, setOriginSystem] = useState('')
   const [workType, setWorkType] = useState('')
@@ -48,6 +55,16 @@ export function TicketsPage() {
   const [owner, setOwner] = useState('')
   const [board, setBoard] = useState('')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    setSourceSystem(searchParams.get('sourceSystem') ?? '')
+    setOriginSystem(searchParams.get('originSystem') ?? '')
+    setWorkType(searchParams.get('workType') ?? '')
+    setStatus(searchParams.get('status') ?? '')
+    setAssignee(searchParams.get('assignee') ?? '')
+    setArea(searchParams.get('area') ?? '')
+    setOwner(searchParams.get('owner') ?? '')
+  }, [searchParams])
 
   const [showNewTicket, setShowNewTicket] = useState(false)
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null)
