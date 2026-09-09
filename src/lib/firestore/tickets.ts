@@ -1,6 +1,6 @@
-import { addDoc, doc, increment, runTransaction, updateDoc } from 'firebase/firestore'
+import { addDoc, arrayUnion, doc, increment, runTransaction, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { Ticket } from '../types'
+import type { Ticket, TicketLogEntry } from '../types'
 import { ticketsCol } from './collections'
 
 export type NewTicketInput = Omit<
@@ -26,6 +26,20 @@ export async function updateTicket(
   const ref = doc(db, 'tickets', ticketId)
   await updateDoc(ref, {
     ...changes,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+/**
+ * Agrega una entrada al historial de seguimiento (comentario/avance manual)
+ * sin pisar las entradas existentes — usa `arrayUnion` en vez de leer y
+ * reescribir el array entero, para no perder entradas cargadas
+ * concurrentemente (por ejemplo por el importador de PO o el sync de Redmine).
+ */
+export async function addTicketLogEntry(ticketId: string, entry: TicketLogEntry) {
+  const ref = doc(db, 'tickets', ticketId)
+  await updateDoc(ref, {
+    log: arrayUnion(entry),
     updatedAt: new Date().toISOString(),
   })
 }

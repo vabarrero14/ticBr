@@ -46,14 +46,17 @@ export interface Person {
 }
 
 /**
- * Un evento del historial de seguimiento de un ticket. Hoy solo lo llena el
- * importador de PO (parsea las columnas con fecha de la planilla "Consolidado"),
- * pero el modelo queda abierto para loguear eventos manuales más adelante.
+ * Un evento del historial de seguimiento de un ticket. Lo llena tanto el
+ * importador de PO (parsea las columnas con fecha de la planilla
+ * "Consolidado" — esas entradas no tienen `author`) como los comentarios
+ * cargados a mano desde la app para cualquier ticket.
  */
 export interface TicketLogEntry {
-  /** Tal cual viene de la planilla — a veces sin año, o con una aclaración. */
+  /** Tal cual viene de la planilla, o fecha/hora de carga si es manual. */
   date: string
   note: string
+  /** Quién lo cargó — solo presente en entradas agregadas desde la app. */
+  author?: string
 }
 
 /**

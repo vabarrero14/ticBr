@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { createTicket, updateTicket } from '../lib/firestore/tickets'
 import {
   BOARD_CATEGORY_LABELS,
@@ -18,6 +19,7 @@ import { Field, inputClass } from './formFields'
 import { Modal } from './Modal'
 import { PersonFormModal } from './PersonFormModal'
 import { PoDetailsPanel } from './PoDetailsPanel'
+import { TicketLogSection } from './TicketLogSection'
 
 /** Tipo sugerido según la plataforma, para no arrancar de un campo vacío
  * (el usuario lo puede pisar libremente después). */
@@ -55,6 +57,7 @@ export function TicketFormModal({
   existingOwners?: string[]
   onClose: () => void
 }) {
+  const { user } = useAuth()
   const [sourceSystem, setSourceSystem] = useState<SourceSystem>(
     ticket?.sourceSystem ?? 'redmine',
   )
@@ -144,7 +147,14 @@ export function TicketFormModal({
   return (
     <>
       <Modal title={ticket ? 'Editar ticket' : 'Nuevo ticket'} onClose={onClose}>
-        {ticket?.po && <PoDetailsPanel po={ticket.po} log={ticket.log} />}
+        {ticket?.po && <PoDetailsPanel po={ticket.po} />}
+        {ticket && (
+          <TicketLogSection
+            ticketId={ticket.id}
+            log={ticket.log}
+            author={user?.displayName || user?.email || 'Usuario'}
+          />
+        )}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Plataforma de gestión">
