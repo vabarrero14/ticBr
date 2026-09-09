@@ -4,6 +4,7 @@ import { FilterSelect } from '../components/FilterSelect'
 import { JefeScopeSelector, inJefeScope } from '../components/JefeScopeSelector'
 import { LinkRootCauseModal } from '../components/LinkRootCauseModal'
 import { MyTicketsToggle } from '../components/MyTicketsToggle'
+import { Pagination } from '../components/Pagination'
 import { TicketFormModal } from '../components/TicketFormModal'
 import { useCollectionData } from '../hooks/useCollectionData'
 import { useJefeScope } from '../hooks/useJefeScope'
@@ -94,6 +95,19 @@ export function TicketsPage() {
       return true
     })
   }, [tickets, sourceSystem, originSystem, workType, status, assignee, area, owner, board, search])
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  // Volver a la página 1 cada vez que cambian los filtros o el alcance — si
+  // no, es fácil quedar "varado" en una página que ya no tiene resultados.
+  useEffect(() => {
+    setPage(1)
+  }, [sourceSystem, originSystem, workType, status, assignee, area, owner, board, search, jefeScope])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   return (
     <div className="space-y-6">
@@ -203,7 +217,7 @@ export function TicketsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((t) => (
+            {paginated.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
@@ -276,6 +290,16 @@ export function TicketsPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          page={currentPage}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size)
+            setPage(1)
+          }}
+        />
       </div>
 
       {showNewTicket && (
