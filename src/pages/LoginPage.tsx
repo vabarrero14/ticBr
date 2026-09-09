@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import logo from '../assets/logo.png'
 import { useAuth } from '../context/AuthContext'
 
 export function LoginPage() {
@@ -23,7 +24,8 @@ export function LoginPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">ticBr</h1>
+        <img src={logo} alt="Los BR" className="mx-auto h-24 w-24 object-contain" />
+        <h1 className="mt-3 text-xl font-semibold text-slate-900">ticBr</h1>
         <p className="mt-1 text-sm text-slate-500">
           Seguimiento centralizado de tickets y casos raíz
         </p>

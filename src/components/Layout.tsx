@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
+import logo from '../assets/logo.png'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
@@ -19,7 +20,10 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-8">
-            <span className="text-base font-semibold text-slate-900">ticBr</span>
+            <span className="flex items-center gap-2">
+              <img src={logo} alt="" className="h-8 w-8 object-contain" />
+              <span className="text-base font-semibold text-slate-900">ticBr</span>
+            </span>
             <nav className="flex gap-1">
               {navItems.map((item) => (
                 <NavLink
